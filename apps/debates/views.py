@@ -1,14 +1,14 @@
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from debates.models import Debate, Participant, DebateTopic, DebateSession, Message
+from debates.models import Participant, DebateTopic, DebateSession, Message
 from debates.serializers import DebateSerializer, ParticipantSerializer, DebateTopicSerializer, DebateSessionSerializer, MessageSerializer
 
 # Create your views here.
 
 class DebateViewSet(viewsets.ModelViewSet):
-    queryset = Debate.objects.all()
-    serializer_class = DebateSerializer
+    queryset = DebateTopic.objects.all()
+    serializer_class = DebateTopicSerializer
 
 class ParticipantViewSet(viewsets.ModelViewSet):
     queryset = Participant.objects.all()

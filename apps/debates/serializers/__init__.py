@@ -1,10 +1,5 @@
 from rest_framework import serializers
-from debates.models import Debate, Participant, DebateTopic, DebateSession, Message
-
-class DebateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Debate
-        fields = ['id', 'title', 'description', 'created_at', 'updated_at']
+from debates.models import Participant, DebateTopic, DebateSession, Message
 
 class DebateTopicSerializer(serializers.ModelSerializer):
     class Meta:
