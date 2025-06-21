@@ -1,116 +1,12 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Layout } from '@/components/layout';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui';
-import { Calendar, MessageCircle, Users } from 'lucide-react';
-
-// Local type definitions (avoiding @/types import)
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  role: 'STUDENT' | 'MODERATOR';
-  is_active: boolean;
-  date_joined: string;
-}
-
-interface DebateTopic {
-  id: number;
-  title: string;
-  description: string;
-  created_by: User;
-  created_at: string;
-  updated_at: string;
-}
-
-interface DebateSession {
-  id: number;
-  topic: DebateTopic;
-  title: string;
-  description: string;
-  start_time: string;
-  duration_minutes: number;
-  max_participants: number;
-  participants_count: number;
-  created_by: User;
-  is_ongoing: boolean;
-  created_at: string;
-}
-
-interface PaginatedResponse<T> {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
-}
-
-// Safe utility functions
-const safeFormatDateTime = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch (error) {
-    console.error('Error formatting date:', error);
-    return 'Invalid date';
-  }
-};
-
-const safeGetTimeAgo = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'recently';
-    
-    const now = new Date();
-    const diffInMs = now.getTime() - date.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInMinutes < 1) {
-      return 'just now';
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes}m ago`;
-    } else if (diffInHours < 24) {
-      return `${diffInHours}h ago`;
-    } else if (diffInDays < 7) {
-      return `${diffInDays}d ago`;
-    } else {
-      return safeFormatDateTime(dateString);
-    }
-  } catch (error) {
-    console.error('Error calculating time ago:', error);
-    return 'recently';
-  }
-};
-
-// Safe API calls (avoiding @/services/api import)
-const safeApiCall = async (url: string) => {
-  try {
-    const token = localStorage.getItem('access_token');
-    const response = await fetch(`http://localhost:8000${url}`, {
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('API call failed:', error);
-    throw error;
-  }
-};
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from '@/components/ui';
+import { Calendar, MessageCircle, Users, Plus, Clock } from 'lucide-react';
+import { apiService } from '@/services/api';
+import { formatDateTime, getTimeAgo } from '@/utils';
+import type { DebateTopic, DebateSession } from '@/types';
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -123,17 +19,16 @@ export function DashboardPage() {
     const fetchData = async () => {
       try {
         console.log('Fetching dashboard data...');
-        
         const [topicsResponse, sessionsResponse] = await Promise.all([
-          safeApiCall('/api/debates/topics/'),
-          safeApiCall('/api/debates/sessions/'),
+          apiService.getTopics(),
+          apiService.getSessions(),
         ]);
 
-        console.log('Topics response:', topicsResponse);
-        console.log('Sessions response:', sessionsResponse);
+        console.log('Topics response:', topicsResponse.data);
+        console.log('Sessions response:', sessionsResponse.data);
 
-        setTopics(topicsResponse.results || []);
-        setSessions(sessionsResponse.results || []);
+        setTopics(topicsResponse.data.results || []);
+        setSessions(sessionsResponse.data.results || []);
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
         setError(`Failed to load data: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -229,12 +124,24 @@ export function DashboardPage() {
           </Card>
         </div>
 
-        {/* Recent Topics and Sessions */}
+        {/* Recent Topics Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Topics</CardTitle>
-              <CardDescription>Latest debate topics created</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Recent Topics</CardTitle>
+                  <CardDescription>Latest debate topics created</CardDescription>
+                </div>
+                {user?.role === 'MODERATOR' && (
+                  <Link to="/topics/create">
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      New Topic
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {topics.length > 0 ? (
@@ -249,24 +156,49 @@ export function DashboardPage() {
                         }
                       </p>
                       <p className="text-xs text-secondary-500 mt-2">
-                        Created {safeGetTimeAgo(topic.created_at)} by {topic.created_by.username}
+                        Created {getTimeAgo(topic.created_at)} by {topic.created_by.username}
                       </p>
                     </div>
                   ))}
+                  <div className="text-center">
+                    <Link to="/topics">
+                      <Button variant="outline" size="sm">
+                        View All Topics
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8">
                   <MessageCircle className="h-12 w-12 text-secondary-400 mx-auto mb-4" />
                   <p className="text-secondary-500">No topics yet</p>
+                  {user?.role === 'MODERATOR' && (
+                    <Link to="/topics/create" className="mt-2 inline-block">
+                      <Button size="sm">Create First Topic</Button>
+                    </Link>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
 
+          {/* Recent Sessions Section */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Sessions</CardTitle>
-              <CardDescription>Debate sessions you can join</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Recent Sessions</CardTitle>
+                  <CardDescription>Debate sessions you can join</CardDescription>
+                </div>
+                {user?.role === 'MODERATOR' && (
+                  <Link to="/sessions/create">
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      New Session
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {sessions.length > 0 ? (
@@ -278,9 +210,10 @@ export function DashboardPage() {
                           <h3 className="font-medium text-secondary-900">
                             {session.topic.title}
                           </h3>
-                          <p className="text-sm text-secondary-600 mt-1">
-                            {safeFormatDateTime(session.start_time)}
-                          </p>
+                          <div className="flex items-center text-sm text-secondary-600 mt-1">
+                            <Clock className="h-4 w-4 mr-1" />
+                            {formatDateTime(session.start_time)}
+                          </div>
                           <p className="text-xs text-secondary-500 mt-1">
                             Max participants: {session.max_participants}
                           </p>
@@ -291,15 +224,32 @@ export function DashboardPage() {
                               Live
                             </span>
                           )}
+                          <Link to={`/sessions/${session.id}`}>
+                            <Button size="sm">
+                              {session.is_ongoing ? 'Join' : 'View'}
+                            </Button>
+                          </Link>
                         </div>
                       </div>
                     </div>
                   ))}
+                  <div className="text-center">
+                    <Link to="/sessions">
+                      <Button variant="outline" size="sm">
+                        View All Sessions
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8">
                   <Calendar className="h-12 w-12 text-secondary-400 mx-auto mb-4" />
                   <p className="text-secondary-500">No sessions yet</p>
+                  {user?.role === 'MODERATOR' && (
+                    <Link to="/sessions/create" className="mt-2 inline-block">
+                      <Button size="sm">Schedule First Session</Button>
+                    </Link>
+                  )}
                 </div>
               )}
             </CardContent>

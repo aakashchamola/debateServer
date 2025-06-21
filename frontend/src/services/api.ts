@@ -76,28 +76,28 @@ class ApiService {
 
   // Auth methods
   async login(credentials: LoginRequest): Promise<AxiosResponse<AuthTokens>> {
-    return this.api.post('/api/auth/login/', credentials);
+    return this.api.post('/api/users/login/', credentials);
   }
 
   async register(userData: RegisterRequest): Promise<AxiosResponse<User>> {
-    return this.api.post('/api/auth/register/', userData);
+    return this.api.post('/api/users/register/', userData);
   }
 
   async refreshToken(refresh: string): Promise<AxiosResponse<{ access: string }>> {
-    return this.api.post('/api/auth/token/refresh/', { refresh });
+    return this.api.post('/api/users/token/refresh/', { refresh });
   }
 
   async logout(): Promise<AxiosResponse<any>> {
     const refreshToken = localStorage.getItem('refreshToken');
     if (refreshToken) {
-      await this.api.post('/api/auth/logout/', { refresh: refreshToken });
+      await this.api.post('/api/users/logout/', { refresh: refreshToken });
     }
     this.clearTokens();
     return Promise.resolve({ data: null } as AxiosResponse<any>);
   }
 
   async getCurrentUser(): Promise<AxiosResponse<User>> {
-    return this.api.get('/api/auth/user/');
+    return this.api.get('/api/users/profile/');
   }
 
   // User methods
@@ -111,65 +111,65 @@ class ApiService {
 
   // Debate Topic methods
   async getTopics(): Promise<AxiosResponse<PaginatedResponse<DebateTopic>>> {
-    return this.api.get('/api/topics/');
+    return this.api.get('/api/debates/topics/');
   }
 
   async getTopic(id: number): Promise<AxiosResponse<DebateTopic>> {
-    return this.api.get(`/api/topics/${id}/`);
+    return this.api.get(`/api/debates/topics/${id}/`);
   }
 
   async createTopic(data: CreateTopicForm): Promise<AxiosResponse<DebateTopic>> {
-    return this.api.post('/api/topics/', data);
+    return this.api.post('/api/debates/topics/', data);
   }
 
   async updateTopic(id: number, data: Partial<CreateTopicForm>): Promise<AxiosResponse<DebateTopic>> {
-    return this.api.patch(`/api/topics/${id}/`, data);
+    return this.api.patch(`/api/debates/topics/${id}/`, data);
   }
 
   async deleteTopic(id: number): Promise<AxiosResponse<any>> {
-    return this.api.delete(`/api/topics/${id}/`);
+    return this.api.delete(`/api/debates/topics/${id}/`);
   }
 
   // Debate Session methods
   async getSessions(): Promise<AxiosResponse<PaginatedResponse<DebateSession>>> {
-    return this.api.get('/api/sessions/');
+    return this.api.get('/api/debates/sessions/');
   }
 
   async getSession(id: number): Promise<AxiosResponse<DebateSession>> {
-    return this.api.get(`/api/sessions/${id}/`);
+    return this.api.get(`/api/debates/sessions/${id}/`);
   }
 
   async createSession(data: CreateSessionForm): Promise<AxiosResponse<DebateSession>> {
-    return this.api.post('/api/sessions/', data);
+    return this.api.post('/api/debates/sessions/', data);
   }
 
   async updateSession(id: number, data: Partial<CreateSessionForm>): Promise<AxiosResponse<DebateSession>> {
-    return this.api.patch(`/api/sessions/${id}/`, data);
+    return this.api.patch(`/api/debates/sessions/${id}/`, data);
   }
 
   async deleteSession(id: number): Promise<AxiosResponse<any>> {
-    return this.api.delete(`/api/sessions/${id}/`);
+    return this.api.delete(`/api/debates/sessions/${id}/`);
   }
 
   async joinSession(sessionId: number): Promise<AxiosResponse<any>> {
-    return this.api.post(`/api/sessions/${sessionId}/join/`);
+    return this.api.post(`/api/debates/sessions/${sessionId}/join/`);
   }
 
   async leaveSession(sessionId: number): Promise<AxiosResponse<any>> {
-    return this.api.post(`/api/sessions/${sessionId}/leave/`);
+    return this.api.post(`/api/debates/sessions/${sessionId}/leave/`);
   }
 
   // Message methods
   async getMessages(sessionId: number): Promise<AxiosResponse<PaginatedResponse<Message>>> {
-    return this.api.get(`/api/sessions/${sessionId}/messages/`);
+    return this.api.get(`/api/debates/messages/?session=${sessionId}`);
   }
 
   async sendMessage(sessionId: number, content: string): Promise<AxiosResponse<Message>> {
-    return this.api.post(`/api/sessions/${sessionId}/messages/`, { content });
+    return this.api.post(`/api/debates/messages/`, { content, session: sessionId });
   }
 
-  async deleteMessage(sessionId: number, messageId: number): Promise<AxiosResponse<any>> {
-    return this.api.delete(`/api/sessions/${sessionId}/messages/${messageId}/`);
+  async deleteMessage(messageId: number): Promise<AxiosResponse<any>> {
+    return this.api.delete(`/api/debates/messages/${messageId}/`);
   }
 
   // Utility methods

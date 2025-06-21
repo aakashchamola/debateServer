@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -24,6 +24,8 @@ class DebateTopicViewSet(viewsets.ModelViewSet):
         """Only moderators can create, update, or delete topics"""
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             permission_classes = [IsAuthenticated, IsModerator]
+        elif self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]  # Allow anyone to read topics
         else:
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
@@ -39,6 +41,8 @@ class DebateSessionViewSet(viewsets.ModelViewSet):
         """Only moderators can create, update, or delete sessions"""
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             permission_classes = [IsAuthenticated, IsModerator]
+        elif self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]  # Allow anyone to read sessions
         else:
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]

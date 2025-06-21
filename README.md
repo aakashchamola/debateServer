@@ -111,19 +111,19 @@ Access the applications:
 ## 📡 **API Endpoints**
 
 ### Authentication
-- `POST /api/auth/login/` - User login
-- `POST /api/auth/register/` - User registration
-- `POST /api/auth/logout/` - User logout
-- `POST /api/auth/token/refresh/` - Refresh JWT token
-- `GET /api/auth/user/` - Get current user
+- `POST /api/users/login/` - User login
+- `POST /api/users/register/` - User registration
+- `POST /api/users/logout/` - User logout
+- `POST /api/users/token/refresh/` - Refresh JWT token
+- `GET /api/users/profile/` - Get current user profile
 
 ### Debates
-- `GET /api/topics/` - List debate topics
-- `POST /api/topics/` - Create topic (moderators only)
-- `GET /api/sessions/` - List debate sessions
-- `POST /api/sessions/` - Create session (moderators only)
-- `POST /api/sessions/{id}/join/` - Join session
-- `GET /api/sessions/{id}/messages/` - Get session messages
+- `GET /api/debates/topics/` - List debate topics
+- `POST /api/debates/topics/` - Create topic (moderators only)
+- `GET /api/debates/sessions/` - List debate sessions
+- `POST /api/debates/sessions/` - Create session (moderators only)
+- `POST /api/debates/sessions/{id}/join/` - Join session
+- `GET /api/debates/messages/?session={id}` - Get session messages
 
 ### WebSocket
 - `ws://localhost:8000/ws/debates/{session_id}/` - Real-time messaging

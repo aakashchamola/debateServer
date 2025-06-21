@@ -38,7 +38,7 @@ class DebateSessionSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_by', 'participant_count']
 
     def get_participant_count(self, obj):
-        return obj.participant_set.count()
+        return obj.participants.count()
 
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user
