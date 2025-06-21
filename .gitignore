@@ -1,2 +1,10 @@
 .env
 summary.txt
+
+# Ignore all Python cache folders
+__pycache__/
+
+# Also ignore compiled Python files
+*.pyc
+*.pyo
+*.pydw
