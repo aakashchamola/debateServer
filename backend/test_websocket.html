@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debate WebSocket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+        .message { margin: 5px 0; padding: 5px; border-radius: 5px; }
+        .own-message { background-color: #e3f2fd; text-align: right; }
+        .other-message { background-color: #f5f5f5; }
+        .typing { font-style: italic; color: #666; }
+        .system { color: #007bff; }
+        input, button { padding: 8px; margin: 5px; }
+        #messageInput { width: 60%; }
+    </style>
+</head>
+<body>
+    <h1>Debate WebSocket Test Client</h1>
+    
+    <div>
+        <label>Session ID: <input type="number" id="sessionId" value="1" min="1"></label>
+        <button onclick="connect()" id="connectBtn">Connect</button>
+        <button onclick="disconnect()" id="disconnectBtn" disabled>Disconnect</button>
+    </div>
+    
+    <div id="status">Status: Disconnected</div>
+    
+    <div id="messages"></div>
+    
+    <div>
+        <input type="text" id="messageInput" placeholder="Type your message..." disabled>
+        <button onclick="sendMessage()" id="sendBtn" disabled>Send</button>
+    </div>
+    
+    <div>
+        <label><input type="checkbox" id="typingIndicator"> Show typing indicator</label>
+    </div>
+
+    <script>
+        let socket = null;
+        let isTyping = false;
+        let typingTimer = null;
+        
+        function updateStatus(message, color = 'black') {
+            document.getElementById('status').innerHTML = `<span style="color: ${color}">Status: ${message}</span>`;
+        }
+        
+        function addMessage(content, type = 'system') {
+            const messages = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = content;
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+        
+        function connect() {
+            const sessionId = document.getElementById('sessionId').value;
+            if (!sessionId) {
+                alert('Please enter a session ID');
+                return;
+            }
+            
+            updateStatus('Connecting...', 'orange');
+            
+            // Note: In production, use wss:// for HTTPS
+            socket = new WebSocket(`ws://localhost:8001/ws/debate/${sessionId}/`);
+            
+            socket.onopen = function(event) {
+                updateStatus('Connected', 'green');
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+                addMessage('Connected to debate session', 'system');
+            };
+            
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                switch(data.type) {
+                    case 'connection_established':
+                        addMessage(`✅ ${data.message}`, 'system');
+                        break;
+                    case 'chat_message':
+                        const messageClass = data.sender === 'You' ? 'own-message' : 'other-message';
+                        addMessage(`<strong>${data.sender}:</strong> ${data.message}<br><small>${new Date(data.timestamp).toLocaleTimeString()}</small>`, messageClass);
+                        break;
+                    case 'typing_indicator':
+                        if (data.is_typing) {
+                            addMessage(`${data.user} is typing...`, 'typing');
+                        }
+                        break;
+                    case 'error':
+                        addMessage(`❌ Error: ${data.message}`, 'system');
+                        break;
+                    default:
+                        addMessage(`Unknown message type: ${data.type}`, 'system');
+                }
+            };
+            
+            socket.onclose = function(event) {
+                updateStatus('Disconnected', 'red');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                addMessage('Disconnected from debate session', 'system');
+            };
+            
+            socket.onerror = function(error) {
+                updateStatus('Connection Error', 'red');
+                addMessage('Connection error occurred', 'system');
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function disconnect() {
+            if (socket) {
+                socket.close();
+            }
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message && socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    'type': 'chat_message',
+                    'message': message
+                }));
+                input.value = '';
+            }
+        }
+        
+        // Typing indicator
+        document.getElementById('messageInput').addEventListener('input', function() {
+            if (!document.getElementById('typingIndicator').checked) return;
+            
+            if (!isTyping && socket && socket.readyState === WebSocket.OPEN) {
+                isTyping = true;
+                socket.send(JSON.stringify({
+                    'type': 'typing',
+                    'is_typing': true
+                }));
+            }
+            
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(function() {
+                if (isTyping && socket && socket.readyState === WebSocket.OPEN) {
+                    isTyping = false;
+                    socket.send(JSON.stringify({
+                        'type': 'typing',
+                        'is_typing': false
+                    }));
+                }
+            }, 1000);
+        });
+        
+        // Send message on Enter key
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
