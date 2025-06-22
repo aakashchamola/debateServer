@@ -49,15 +49,21 @@ class DebateSessionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def join(self, request, pk=None):
-        """Allow students to join a debate session"""
+        """Allow students to join a debate session - only if it's currently live"""
         session = get_object_or_404(DebateSession, pk=pk, is_active=True)
         
-        # Check if session is ongoing or future
-        if session.end_time < timezone.now():
-            return Response(
-                {'error': 'Cannot join a session that has already ended'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Check if session is currently ongoing (live)
+        if not session.is_ongoing:
+            if session.start_time > timezone.now():
+                return Response(
+                    {'error': 'Cannot join a session that has not started yet. Wait for it to go live.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {'error': 'Cannot join a session that has already ended.'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # Check if user is already a participant
         existing_participant = Participant.objects.filter(user=request.user, session=session).first()
@@ -101,6 +107,55 @@ class DebateSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+    @action(detail=True, methods=['post'])
+    def enter_chat(self, request, pk=None):
+        """Allow participants to enter the chat room"""
+        session = get_object_or_404(DebateSession, pk=pk, is_active=True)
+        
+        # Check if user is a participant
+        try:
+            participant = Participant.objects.get(user=request.user, session=session, is_active=True)
+        except Participant.DoesNotExist:
+            return Response(
+                {'error': 'You must be a participant to enter the chat'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Return session details with chat access
+        serializer = self.get_serializer(session)
+        return Response({
+            'session': serializer.data,
+            'participant': ParticipantSerializer(participant).data,
+            'message': 'Chat access granted'
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'])
+    def messages(self, request, pk=None):
+        """Get message history for a session (only for participants)"""
+        session = get_object_or_404(DebateSession, pk=pk, is_active=True)
+        
+        # Check if user is a participant
+        try:
+            participant = Participant.objects.get(user=request.user, session=session, is_active=True)
+        except Participant.DoesNotExist:
+            return Response(
+                {'error': 'You must be a participant to view messages'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get messages from when user joined
+        messages = Message.objects.filter(
+            session=session,
+            timestamp__gte=participant.joined_at,
+            is_deleted=False
+        ).order_by('timestamp')
+        
+        serializer = MessageSerializer(messages, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        }, status=status.HTTP_200_OK)
+
 
 class ParticipantViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for viewing participants (read-only)"""
@@ -124,11 +179,27 @@ class MessageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filter messages by session"""
+        """Filter messages by session and user participation"""
         queryset = super().get_queryset()
         session_id = self.request.query_params.get('session_id', None)
+        
         if session_id is not None:
-            queryset = queryset.filter(session_id=session_id)
+            # Get user's participation in this session
+            try:
+                participant = Participant.objects.get(
+                    user=self.request.user, 
+                    session_id=session_id, 
+                    is_active=True
+                )
+                # Only return messages from after the user joined
+                queryset = queryset.filter(
+                    session_id=session_id,
+                    timestamp__gte=participant.joined_at
+                ).order_by('timestamp')
+            except Participant.DoesNotExist:
+                # User is not a participant, return empty queryset
+                queryset = queryset.none()
+        
         return queryset
 
     def perform_create(self, serializer):

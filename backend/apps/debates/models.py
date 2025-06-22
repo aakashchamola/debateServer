@@ -96,6 +96,61 @@ class Participant(models.Model):
         return f"{self.user.username} in {self.session}"
 
 
+class OnlineParticipant(models.Model):
+    """Model to track online participants in real-time"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='online_sessions'
+    )
+    session = models.ForeignKey(
+        DebateSession,
+        on_delete=models.CASCADE,
+        related_name='online_participants'
+    )
+    channel_name = models.CharField(max_length=255, unique=True)
+    connected_at = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['user', 'session']
+        indexes = [
+            models.Index(fields=['session', 'connected_at']),
+            models.Index(fields=['last_seen']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} online in {self.session}"
+
+
+class TypingIndicator(models.Model):
+    """Model to track who is currently typing"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='typing_sessions'
+    )
+    session = models.ForeignKey(
+        DebateSession,
+        on_delete=models.CASCADE,
+        related_name='typing_users'
+    )
+    is_typing = models.BooleanField(default=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['user', 'session']
+        indexes = [
+            models.Index(fields=['session', 'is_typing']),
+            models.Index(fields=['updated_at']),
+        ]
+
+    def __str__(self):
+        status = "typing" if self.is_typing else "stopped typing"
+        return f"{self.user.username} {status} in {self.session}"
+
+
 class Message(models.Model):
     """Model for messages in debate sessions"""
     session = models.ForeignKey(

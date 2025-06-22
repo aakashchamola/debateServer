@@ -51,6 +51,7 @@ export interface DebateSession {
   max_participants: number;
   is_ongoing?: boolean;
   participants_count?: number;
+  user_has_joined?: boolean;
 }
 
 export interface Participant {
@@ -59,6 +60,7 @@ export interface Participant {
   session: DebateSession;
   joined_at: string;
   is_active: boolean;
+  is_deleted: boolean;
 }
 
 export interface Message {
@@ -75,6 +77,7 @@ export interface WebSocketMessage {
   type: 'message' | 'user_joined' | 'user_left' | 'session_started' | 'session_ended';
   data: any;
   timestamp: string;
+  session_id: number;
 }
 
 export interface ChatMessage {
@@ -90,6 +93,7 @@ export interface ApiResponse<T> {
   data: T;
   message?: string;
   status: 'success' | 'error';
+  results: T[];
 }
 
 export interface PaginatedResponse<T> {
@@ -97,6 +101,13 @@ export interface PaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+export interface DashboardStats {
+  debates_participated: number;
+  debates_won: number;
+  current_rating: number;
+  debates_this_week: number;
 }
 
 // Form types

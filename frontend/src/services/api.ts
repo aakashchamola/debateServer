@@ -159,6 +159,14 @@ class ApiService {
     return this.api.post(`/api/debates/sessions/${sessionId}/leave/`);
   }
 
+  async enterChat(sessionId: number): Promise<AxiosResponse<any>> {
+    return this.api.post(`/api/debates/sessions/${sessionId}/enter_chat/`);
+  }
+
+  async getSessionMessages(sessionId: number): Promise<AxiosResponse<PaginatedResponse<Message>>> {
+    return this.api.get(`/api/debates/sessions/${sessionId}/messages/`);
+  }
+
   // Message methods
   async getMessages(sessionId: number): Promise<AxiosResponse<PaginatedResponse<Message>>> {
     return this.api.get(`/api/debates/messages/?session=${sessionId}`);

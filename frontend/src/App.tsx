@@ -3,10 +3,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { LoginPage } from '@/pages/LoginPage';
-import { RegisterPage } from '@/pages/RegisterPage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { SessionChatPage } from '@/pages/SessionChatPage';
+import {
+  LoginPage,
+  RegisterPage,
+  DashboardPage,
+  SessionChatPage,
+  ProfilePage,
+  TopicsPage,
+  SessionsPage,
+  CommunityPage,
+} from '@/pages';
+import { Layout } from '@/components/layout';
 
 // Create query client
 const queryClient = new QueryClient({
@@ -88,7 +95,9 @@ function AppRoutes() {
         path="/debate/:sessionId"
         element={
           <ProtectedRoute>
-            <SessionChatPage />
+            <Layout>
+              <SessionChatPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -98,7 +107,15 @@ function AppRoutes() {
         path="/topics"
         element={
           <ProtectedRoute>
-            <div>Topics Page (Coming Soon)</div>
+            <TopicsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/community"
+        element={
+          <ProtectedRoute>
+            <CommunityPage />
           </ProtectedRoute>
         }
       />
@@ -106,7 +123,7 @@ function AppRoutes() {
         path="/sessions"
         element={
           <ProtectedRoute>
-            <div>Sessions Page (Coming Soon)</div>
+            <SessionsPage />
           </ProtectedRoute>
         }
       />
@@ -114,9 +131,13 @@ function AppRoutes() {
         path="/profile"
         element={
           <ProtectedRoute>
-            <div>Profile Page (Coming Soon)</div>
+            <ProfilePage />
           </ProtectedRoute>
         }
+      />
+      <Route 
+        path="/settings" 
+        element={<Navigate to="/profile" replace />} 
       />
 
       {/* Default redirect */}

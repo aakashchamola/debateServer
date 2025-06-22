@@ -81,11 +81,13 @@ class ParticipantSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserBasicSerializer(read_only=True)
     session_id = serializers.IntegerField(write_only=True)
+    user = UserBasicSerializer(source='sender', read_only=True)  # Alias for frontend compatibility
+    created_at = serializers.DateTimeField(source='timestamp', read_only=True)  # Alias for frontend compatibility
     
     class Meta:
         model = Message
-        fields = ['id', 'session_id', 'sender', 'content', 'timestamp']
-        read_only_fields = ['id', 'sender', 'timestamp']
+        fields = ['id', 'session_id', 'sender', 'user', 'content', 'timestamp', 'created_at']
+        read_only_fields = ['id', 'sender', 'user', 'timestamp', 'created_at']
 
     def create(self, validated_data):
         validated_data['sender'] = self.context['request'].user

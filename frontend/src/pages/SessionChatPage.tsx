@@ -77,12 +77,28 @@ export function SessionChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [sending, setSending] = useState(false);
+  
+  // Online and typing state
+  const [onlineCount, setOnlineCount] = useState(0);
+  const [totalParticipants, setTotalParticipants] = useState(0);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   console.log('SessionChatPage rendered with sessionId:', sessionId, 'user:', user?.username);
-  console.log('Component state:', { loading, error, session: !!session, messagesCount: messages.length });
+  console.log('Component state:', { 
+    loading, 
+    error, 
+    session: !!session, 
+    messagesCount: messages.length,
+    onlineCount,
+    totalParticipants,
+    typingUsers 
+  });
 
   // Early return for missing auth
   if (!user) {
@@ -100,9 +116,9 @@ export function SessionChatPage() {
     scrollToBottom();
   }, [messages]);
 
-  // Fetch session data and message history
+  // Fetch session data and handle join/enter chat logic
   useEffect(() => {
-    const fetchSessionAndMessages = async () => {
+    const fetchSessionAndSetupChat = async () => {
       if (!sessionId) {
         setError('Session ID not provided');
         setLoading(false);
@@ -119,37 +135,72 @@ export function SessionChatPage() {
         
         setSession(sessionData);
         
-        // Fetch message history for participants
-        if (sessionData.user_has_joined) {
-          console.log('Fetching message history...');
+        // Check if user needs to join the session first
+        if (!sessionData.user_has_joined) {
+          console.log('User not yet a participant, attempting to join...');
           try {
-            const messagesResponse = await apiService.getMessages(parseInt(sessionId));
-            const messageHistory = messagesResponse.data.results || [];
-            console.log('Message history:', messageHistory);
+            await apiService.joinSession(parseInt(sessionId));
+            console.log('Successfully joined session');
             
-            // Transform API messages to match our ChatMessage interface
-            const transformedMessages = messageHistory
-              .filter((msg: any) => msg && msg.user && msg.content) // Filter out invalid messages
-              .map((msg: any) => ({
-                id: msg.id.toString(),
-                user: {
-                  id: msg.user.id || 0,
-                  username: msg.user.username || 'Unknown User',
-                  email: msg.user.email || '',
-                  role: msg.user.role || 'STUDENT',
-                  is_active: msg.user.is_active || true,
-                  date_joined: msg.user.date_joined || new Date().toISOString()
-                },
-                content: msg.content,
-                timestamp: msg.created_at || msg.timestamp || new Date().toISOString(),
-                session_id: parseInt(sessionId)
-              }));
+            // Refresh session data to get updated user_has_joined status
+            const updatedSessionResponse = await apiService.getSession(parseInt(sessionId));
+            const updatedSessionData = updatedSessionResponse.data as any;
+            setSession(updatedSessionData);
             
-            setMessages(transformedMessages);
-          } catch (error) {
-            console.error('Failed to fetch message history:', error);
-            // Don't set error for message history failure, just log it
+            // Now enter the chat
+            console.log('Entering chat...');
+            await apiService.enterChat(parseInt(sessionId));
+            
+          } catch (joinError: any) {
+            console.error('Failed to join session:', joinError);
+            if (joinError.response?.status === 400) {
+              setError('Cannot join this session. It may be scheduled for later or not currently active.');
+            } else {
+              setError(`Failed to join session: ${joinError.message || 'Unknown error'}`);
+            }
+            setLoading(false);
+            return;
           }
+        } else {
+          // User is already a participant, enter chat
+          console.log('User is already a participant, entering chat...');
+          try {
+            await apiService.enterChat(parseInt(sessionId));
+          } catch (enterError) {
+            console.error('Failed to enter chat:', enterError);
+            // Continue even if enter chat fails, as user might already be in chat
+          }
+        }
+        
+        // Fetch message history using the new endpoint
+        console.log('Fetching message history...');
+        try {
+          const messagesResponse = await apiService.getSessionMessages(parseInt(sessionId));
+          const messageHistory = messagesResponse.data.results || [];
+          console.log('Message history:', messageHistory);
+          
+          // Transform API messages to match our ChatMessage interface
+          const transformedMessages = messageHistory
+            .filter((msg: any) => msg && msg.user && msg.content) // Filter out invalid messages
+            .map((msg: any) => ({
+              id: msg.id.toString(),
+              user: {
+                id: msg.user.id || 0,
+                username: msg.user.username || 'Unknown User',
+                email: msg.user.email || '',
+                role: msg.user.role || 'STUDENT',
+                is_active: msg.user.is_active || true,
+                date_joined: msg.user.date_joined || new Date().toISOString()
+              },
+              content: msg.content,
+              timestamp: msg.created_at || msg.timestamp || new Date().toISOString(),
+              session_id: parseInt(sessionId)
+            }));
+          
+          setMessages(transformedMessages);
+        } catch (error) {
+          console.error('Failed to fetch message history:', error);
+          // Don't set error for message history failure, just log it
         }
         
       } catch (error) {
@@ -160,7 +211,7 @@ export function SessionChatPage() {
       }
     };
 
-    fetchSessionAndMessages();
+    fetchSessionAndSetupChat();
   }, [sessionId]);
 
   // WebSocket connection
@@ -189,7 +240,30 @@ export function SessionChatPage() {
           switch (data.type) {
             case 'connection_established':
               console.log('Connection established:', data.message);
+              if (data.online_count !== undefined) {
+                setOnlineCount(data.online_count);
+              }
+              if (data.total_participants !== undefined) {
+                setTotalParticipants(data.total_participants);
+              }
               break;
+              
+            case 'online_count_update':
+              setOnlineCount(data.online_count);
+              setTotalParticipants(data.total_participants);
+              console.log(`Online count updated: ${data.online_count}/${data.total_participants}`);
+              if (data.user_joined) {
+                console.log(`${data.user_joined.username} joined the chat`);
+              }
+              if (data.user_left) {
+                console.log(`${data.user_left.username} left the chat`);
+              }
+              break;
+              
+            case 'typing_indicator':
+              handleTypingIndicator(data.user, data.is_typing);
+              break;
+              
             case 'chat_message':
               // Add new message
               setMessages(prev => {
@@ -210,16 +284,12 @@ export function SessionChatPage() {
                 }];
               });
               break;
-            case 'typing_indicator':
-              // Handle typing indicators (you can implement this later)
-              break;
+              
             case 'error':
               console.error('WebSocket error:', data.message);
               setError(data.message);
               break;
-            case 'user_left':
-              console.log('User left:', data.user.username);
-              break;
+              
             default:
               console.log('Unknown message type:', data.type);
           }
@@ -262,6 +332,13 @@ export function SessionChatPage() {
     try {
       setSending(true);
       
+      // Clear typing indicator
+      setIsTyping(false);
+      sendTypingIndicator(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
       const messageData = {
         type: 'chat_message',
         content: newMessage.trim()
@@ -283,17 +360,54 @@ export function SessionChatPage() {
     }
   };
 
+  // Helper functions
+  const handleTypingIndicator = (username: string, isTyping: boolean) => {
+    setTypingUsers(prev => {
+      if (isTyping) {
+        // Add user to typing list if not already there
+        return prev.includes(username) ? prev : [...prev, username];
+      } else {
+        // Remove user from typing list
+        return prev.filter(u => u !== username);
+      }
+    });
+  };
+
+  const sendTypingIndicator = (typing: boolean) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'typing',
+        is_typing: typing
+      }));
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNewMessage(e.target.value);
-    
-    // Auto-resize textarea
-    const textarea = e.target;
-    textarea.style.height = '44px';
-    const scrollHeight = textarea.scrollHeight;
-    const maxHeight = 120;
-    
-    if (scrollHeight > 44) {
-      textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+    const value = e.target.value;
+    setNewMessage(value);
+
+    // Handle typing indicator
+    if (value.length > 0 && !isTyping) {
+      setIsTyping(true);
+      sendTypingIndicator(true);
+    }
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set timeout to stop typing indicator after 1 second of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      sendTypingIndicator(false);
+    }, 1000);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
@@ -344,9 +458,8 @@ export function SessionChatPage() {
   }
 
   return (
-    <Layout>
-      <div className="flex h-screen font-sans bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100">
-        
+    <div className="flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)] font-sans bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-1 overflow-hidden">
         {/* --- Sidebar: Session Details --- */}
         <aside className="w-80 lg:w-96 flex-shrink-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-r border-gray-200/80 dark:border-slate-700/80 hidden md:flex flex-col shadow-lg">
           <div className="flex-shrink-0 p-6 border-b border-gray-200/80 dark:border-slate-700/80">
@@ -382,6 +495,13 @@ export function SessionChatPage() {
                 <div className="flex justify-between items-center py-2">
                   <span className="text-gray-600 dark:text-gray-400 font-medium">Participants</span>
                   <span className="font-semibold text-gray-800 dark:text-gray-200">{session.participants_count} / {session.max_participants}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-600 dark:text-gray-400 font-medium">Online Now</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    {onlineCount} / {totalParticipants}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-2">
                   <span className="text-gray-600 dark:text-gray-400 font-medium">Duration</span>
@@ -425,7 +545,7 @@ export function SessionChatPage() {
         </aside>
 
         {/* --- Main Chat Area --- */}
-        <main className="flex-1 flex flex-col min-w-0 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900">
+        <main className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-800/50">
           <header className="flex items-center justify-between p-4 border-b border-gray-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md sticky top-0 z-10 shadow-sm md:hidden">
             <button 
               onClick={() => navigate('/dashboard')} 
@@ -448,113 +568,120 @@ export function SessionChatPage() {
 
           {/* Messages Container with dedicated scrollbar */}
           <div 
-            className="flex-1 flex flex-col min-h-0 max-h-full"
-            style={{
-              backgroundColor: '#f8fafc',
-              background: 'linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%)',
-            }}
+            className="flex-1 overflow-y-auto p-4 sm:p-6"
           >
-            <div 
-              className="flex-1 overflow-y-auto pt-4 sm:pt-6 px-4 sm:px-6 custom-scrollbar"
-              style={{
-                maxHeight: 'calc(100vh - 200px)', // Fixed height constraint
-                minHeight: '400px'
-              }}
-            >
-              {/* Message container with enhanced background and spacing */}
-              {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-slate-700 dark:to-slate-800 rounded-full flex items-center justify-center mb-6 shadow-lg">
-                    <MessageCircle className="h-10 w-10 text-blue-500 dark:text-blue-400" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">Welcome to the debate!</h3>
-                  <p className="text-gray-600 dark:text-gray-400 max-w-md leading-relaxed">
-                    {session.user_has_joined ? "Messages will appear here. Be the first to share your thoughts!" : "You must join the session to see and send messages."}
-                  </p>
+            {/* Message container with enhanced background and spacing */}
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-slate-700 dark:to-slate-800 rounded-full flex items-center justify-center mb-6 shadow-lg">
+                  <MessageCircle className="h-10 w-10 text-blue-500 dark:text-blue-400" />
                 </div>
-              ) : (
-                <div className="space-y-4 pb-4">
-                  {messages.filter(msg => msg && msg.user).map((message, index) => {
-                    const isCurrentUser = message.user.id === user?.id;
-                    const isModerator = message.user.role === 'MODERATOR';
-                    const prevMessage = messages[index - 1];
-                    const showHeader = !prevMessage || prevMessage.user.id !== message.user.id || new Date(message.timestamp).getTime() - new Date(prevMessage.timestamp).getTime() > 300000;
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">Welcome to the debate!</h3>
+                <p className="text-gray-600 dark:text-gray-400 max-w-md leading-relaxed">
+                  {session.user_has_joined ? "Messages will appear here. Be the first to share your thoughts!" : "You must join the session to see and send messages."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 pb-4">
+                {messages.filter(msg => msg && msg.user).map((message, index) => {
+                  const isCurrentUser = message.user.id === user?.id;
+                  const isModerator = message.user.role === 'MODERATOR';
+                  const prevMessage = messages[index - 1];
+                  const showHeader = !prevMessage || prevMessage.user.id !== message.user.id || new Date(message.timestamp).getTime() - new Date(prevMessage.timestamp).getTime() > 300000;
 
-                    return (
-                      <div key={message.id} className={`flex items-start gap-3 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'} ${showHeader ? 'mt-6' : 'mt-1'} transition-all duration-200 hover:scale-[1.01] group`}>
-                        <div className="w-12 flex-shrink-0">
-                          {showHeader && (
-                            <div 
-                              className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shadow-lg transition-transform duration-200 group-hover:scale-110"
-                              style={{
-                                backgroundColor: isModerator ? '#f59e0b' : isCurrentUser ? '#1f2937' : '#7c3aed',
-                                color: '#ffffff',
-                                background: isModerator 
-                                  ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
-                                  : isCurrentUser 
-                                  ? 'linear-gradient(135deg, #1f2937 0%, #111827 100%)' 
-                                  : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)'
-                              }}
-                            >
-                              {getInitials(message.user.username)}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className={`max-w-lg w-fit ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col`}>
-                          {showHeader && (
-                            <div className={`mb-2 px-1 ${isCurrentUser ? 'text-right' : 'text-left'}`}>
-                              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                {isCurrentUser ? 'You' : message.user.username}
-                              </span>
-                              {isModerator && (
-                                <span className="ml-2 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-xs font-medium rounded-full">
-                                  Moderator
-                                </span>
-                              )}
-                              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                                {safeFormatTime(message.timestamp)}
-                              </div>
-                            </div>
-                          )}
-                          
+                  return (
+                    <div key={message.id} className={`flex items-start gap-3 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'} ${showHeader ? 'mt-6' : 'mt-1'} transition-all duration-200 hover:scale-[1.01] group`}>
+                      <div className="w-12 flex-shrink-0">
+                        {showHeader && (
                           <div 
-                            className="px-5 py-3 rounded-2xl shadow-lg transition-all duration-200 group-hover:shadow-xl relative"
+                            className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shadow-lg transition-transform duration-200 group-hover:scale-110"
                             style={{
-                              backgroundColor: isCurrentUser ? '#1f2937' : isModerator ? '#f59e0b' : '#7c3aed',
+                              backgroundColor: isModerator ? '#f59e0b' : isCurrentUser ? '#1f2937' : '#7c3aed',
                               color: '#ffffff',
-                              background: isCurrentUser 
-                                ? 'linear-gradient(135deg, #1f2937 0%, #111827 100%)' 
-                                : isModerator 
+                              background: isModerator 
                                 ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
-                                : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
-                              borderRadius: isCurrentUser ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                                : isCurrentUser 
+                                ? 'linear-gradient(135deg, #1f2937 0%, #111827 100%)' 
+                                : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)'
                             }}
                           >
-                            <p className="text-base break-words whitespace-pre-wrap font-medium leading-relaxed">
-                              {message.content}
-                            </p>
-                            {/* Message tail */}
-                            <div 
-                              className="absolute w-3 h-3 transform rotate-45"
-                              style={{
-                                backgroundColor: isCurrentUser ? '#1f2937' : isModerator ? '#f59e0b' : '#7c3aed',
-                                [isCurrentUser ? 'right' : 'left']: '-6px',
-                                bottom: '12px',
-                              }}
-                            />
+                            {getInitials(message.user.username)}
                           </div>
+                        )}
+                      </div>
+                      
+                      <div className={`max-w-lg w-fit ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col`}>
+                        {showHeader && (
+                          <div className={`mb-2 px-1 ${isCurrentUser ? 'text-right' : 'text-left'}`}>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                              {isCurrentUser ? 'You' : message.user.username}
+                            </span>
+                            {isModerator && (
+                              <span className="ml-2 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-xs font-medium rounded-full">
+                                Moderator
+                              </span>
+                            )}
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">
+                              {safeFormatTime(message.timestamp)}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div 
+                          className="px-5 py-3 rounded-2xl shadow-lg transition-all duration-200 group-hover:shadow-xl relative"
+                          style={{
+                            backgroundColor: isCurrentUser ? '#1f2937' : isModerator ? '#f59e0b' : '#7c3aed',
+                            color: '#ffffff',
+                            background: isCurrentUser 
+                              ? 'linear-gradient(135deg, #1f2937 0%, #111827 100%)' 
+                              : isModerator 
+                              ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
+                              : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+                            borderRadius: isCurrentUser ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                          }}
+                        >
+                          <p className="text-base break-words whitespace-pre-wrap font-medium leading-relaxed">
+                            {message.content}
+                          </p>
+                          {/* Message tail */}
+                          <div 
+                            className="absolute w-3 h-3 transform rotate-45"
+                            style={{
+                              backgroundColor: isCurrentUser ? '#1f2937' : isModerator ? '#f59e0b' : '#7c3aed',
+                              [isCurrentUser ? 'right' : 'left']: '-6px',
+                              bottom: '12px',
+                            }}
+                          />
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
           <div className="flex-shrink-0 p-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t border-gray-200/80 dark:border-slate-700/80 shadow-lg">
+            {/* Typing indicators */}
+            {typingUsers.length > 0 && (
+              <div className="mb-3 text-sm text-gray-500 dark:text-gray-400 italic flex items-center gap-2">
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+                <span>
+                  {typingUsers.length === 1 
+                    ? `${typingUsers[0]} is typing...`
+                    : typingUsers.length === 2
+                    ? `${typingUsers[0]} and ${typingUsers[1]} are typing...`
+                    : `${typingUsers[0]} and ${typingUsers.length - 1} others are typing...`
+                  }
+                </span>
+              </div>
+            )}
+            
             {session.user_has_joined ? (
               <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex items-end gap-3">
                 <div className="flex-1 relative">
@@ -562,7 +689,7 @@ export function SessionChatPage() {
                     ref={inputRef} 
                     value={newMessage} 
                     onChange={handleInputChange} 
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} 
+                    onKeyDown={handleKeyPress}
                     placeholder="Type your message..." 
                     className="w-full p-4 bg-gray-50 dark:bg-slate-700/80 rounded-2xl border-2 border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none resize-none transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 shadow-sm hover:shadow-md focus:shadow-lg" 
                     rows={1} 
@@ -594,6 +721,6 @@ export function SessionChatPage() {
           </div>
         </main>
       </div>
-    </Layout>
+    </div>
   );
 }

@@ -1,106 +1,41 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Layout } from '@/components/layout';
-import { Card, CardContent } from '@/components/ui';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from '@/components/ui';
 import { Button } from '@/components/ui';
+import { Input } from '@/components/ui';
+import { Label } from '@/components/ui';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui';
 import { apiService } from '@/services/api';
-import { 
-  Calendar, 
-  MessageCircle, 
-  Users, 
+import {
   Plus,
-  Clock,
-  Crown,
+  ArrowRight,
+  MessageSquare,
+  Trophy,
   Star,
-  Activity,
-  Target,
-  Zap,
-  Award,
-  Trophy
+  Calendar,
+  Clock,
+  Users as UsersIcon,
+  FileText,
+  Shield,
 } from 'lucide-react';
-
-// Local type definitions
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  role: 'STUDENT' | 'MODERATOR';
-  is_active: boolean;
-  date_joined: string;
-}
-
-interface DebateTopic {
-  id: number;
-  title: string;
-  description: string;
-  created_by: User;
-  created_at: string;
-  updated_at: string;
-}
-
-interface DebateSession {
-  id: number;
-  topic: DebateTopic;
-  title: string;
-  description: string;
-  start_time: string;
-  end_time: string;
-  duration_minutes: number;
-  max_participants: number;
-  participants_count: number;
-  created_by: User;
-  is_ongoing: boolean;
-  user_has_joined: boolean;
-  created_at: string;
-}
-
-interface DashboardStats {
-  debates_participated: number;
-  debates_won: number;
-  current_rating: number;
-  debates_this_week: number;
-}
-
-// Utility functions
-const safeFormatDateTime = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch (error) {
-    console.error('Error formatting date:', error);
-    return 'Invalid date';
-  }
-};
-
-const safeGetTimeAgo = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'recently';
-    
-    const now = new Date();
-    const diffInMs = now.getTime() - date.getTime();
-    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInMinutes < 1) return 'just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInDays < 7) return `${diffInDays}d ago`;
-    return safeFormatDateTime(dateString);
-  } catch (error) {
-    console.error('Error calculating time ago:', error);
-    return 'recently';
-  }
-};
+import type { DebateSession, DebateTopic, CreateSessionForm, DashboardStats } from '@/types';
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -108,47 +43,41 @@ export function DashboardPage() {
   const [debateSessions, setDebateSessions] = useState<DebateSession[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [newTopic, setNewTopic] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [userCount, setUserCount] = useState(0);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const handleJoinSession = async (sessionId: number) => {
-    try {
-      console.log('Attempting to join session:', sessionId);
-      await apiService.joinSession(sessionId);
-      console.log('Successfully joined session, navigating to chat...');
-      // Successfully joined, navigate to chat
-      navigate(`/debate/${sessionId}`);
-      // Refresh the sessions to update participant count
-      await fetchDashboardData();
-    } catch (error) {
-      console.error('Error joining session:', error);
-      alert(`Failed to join session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    if (user) {
+      fetchDashboardData();
     }
-  };
-
-  const handleContinueSession = (sessionId: number) => {
-    console.log('Navigating to existing session:', sessionId);
-    navigate(`/debate/${sessionId}`);
-  };
+  }, [user]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const sessionsResponse = await apiService.getSessions();
+      const [sessionsResponse, statsResponse] = await Promise.all([
+        apiService.getSessions(),
+        // Mocking stats as the endpoint doesn't exist
+        Promise.resolve({
+          data: {
+            debates_participated: 12,
+            debates_won: 8,
+            current_rating: 1520,
+            debates_this_week: 3,
+          },
+        }),
+      ]);
 
       if (sessionsResponse.data) {
-        setDebateSessions(sessionsResponse.data.results as any);
+        setDebateSessions(sessionsResponse.data.results);
       }
-      
-      // Mock stats for now since the endpoint doesn't exist yet
-      setStats({
-        debates_participated: 5,
-        debates_won: 3,
-        current_rating: 1450,
-        debates_this_week: 2
-      });
+      setStats(statsResponse.data);
+
+      if (user?.role === 'MODERATOR') {
+        const usersResponse = await apiService.getUsers();
+        setUserCount(usersResponse.data.count);
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -156,32 +85,48 @@ export function DashboardPage() {
     }
   };
 
-  const getWinRate = () => {
-    if (!stats || stats.debates_participated === 0) return 0;
-    return Math.round((stats.debates_won / stats.debates_participated) * 100);
+  const handleCreateDebate = async () => {
+    if (!newTopic.trim()) {
+      // Add some validation feedback
+      return;
+    }
+    try {
+      const topicResponse = await apiService.createTopic({
+        title: newTopic,
+        description: newDescription,
+      });
+      const newDebateTopic: DebateTopic = topicResponse.data;
+
+      const sessionData: CreateSessionForm = {
+        topic_id: newDebateTopic.id,
+        start_time: new Date().toISOString(),
+        end_time: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        max_participants: 2,
+      };
+
+      const sessionResponse = await apiService.createSession(sessionData);
+      const newSession: DebateSession = sessionResponse.data;
+
+      navigate(`/debate/${newSession.id}`);
+    } catch (error) {
+      console.error('Error creating debate:', error);
+      // Add user-friendly error handling
+    }
   };
 
-  const getRatingColor = (rating: number) => {
-    if (rating >= 1800) return 'text-accent-500';
-    if (rating >= 1500) return 'text-primary-500';
-    if (rating >= 1200) return 'text-success-500';
-    return 'text-secondary';
-  };
-
-  const getRatingLevel = (rating: number) => {
-    if (rating >= 1800) return 'Expert';
-    if (rating >= 1500) return 'Advanced';
-    if (rating >= 1200) return 'Intermediate';
-    return 'Beginner';
-  };
+  const winRate = stats
+    ? stats.debates_participated > 0
+      ? Math.round((stats.debates_won / stats.debates_participated) * 100)
+      : 0
+    : 0;
 
   if (loading) {
     return (
       <Layout>
-        <div className="dashboard">
-          <div className="loading-container">
-            <div className="loading-spinner large"></div>
-            <p className="text-secondary-muted">Loading your dashboard...</p>
+        <div className="flex items-center justify-center h-[calc(100vh-8rem)]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
+            <p className="text-muted-foreground">Loading your dashboard...</p>
           </div>
         </div>
       </Layout>
@@ -190,244 +135,235 @@ export function DashboardPage() {
 
   return (
     <Layout>
-      <div className="dashboard">
-        {/* Welcome Header */}
-        <div className="dashboard-header">
-          <div className="welcome-section">
-            <h1 className="dashboard-title">
+      <div className="flex flex-col gap-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">
               Welcome back, {user?.username}!
             </h1>
-            <p className="dashboard-subtitle">
-              Ready to engage in some thought-provoking debates?
+            <p className="text-muted-foreground">
+              {user?.role === 'MODERATOR'
+                ? "Here's the platform's activity overview."
+                : "Here's your debate activity overview."}
             </p>
           </div>
-          <div className="dashboard-actions">
-            <Button 
-              variant="primary" 
-              size="lg"
-              onClick={() => navigate('/debates/new')}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Start New Debate
-            </Button>
-          </div>
+          {user?.role === 'MODERATOR' && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create New Debate
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Debate</DialogTitle>
+                  <DialogDescription>
+                    Start a new debate by providing a topic and an optional
+                    description.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="topic" className="text-right">
+                      Topic
+                    </Label>
+                    <Input
+                      id="topic"
+                      value={newTopic}
+                      onChange={(e) => setNewTopic(e.target.value)}
+                      className="col-span-3"
+                      placeholder="e.g., Is universal basic income a viable solution?"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="description" className="text-right">
+                      Description
+                    </Label>
+                    <Input
+                      id="description"
+                      value={newDescription}
+                      onChange={(e) => setNewDescription(e.target.value)}
+                      className="col-span-3"
+                      placeholder="(Optional) A brief description of the topic."
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" onClick={handleCreateDebate}>
+                    Create and Start Debate
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
-        {/* Stats Overview */}
-        {stats && (
-          <div className="stats-grid">
-            <Card className="stat-card primary">
+        {user?.role === 'MODERATOR' ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Active Sessions
+                </CardTitle>
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
               <CardContent>
-                <div className="stat-content">
-                  <div className="stat-icon">
-                    <MessageCircle className="h-6 w-6" />
-                  </div>
-                  <div className="stat-info">
-                    <div className="stat-value">{stats.debates_participated}</div>
-                    <div className="stat-label">Total Debates</div>
-                  </div>
+                <div className="text-2xl font-bold">
+                  {debateSessions.filter((s) => s.is_ongoing).length}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  of {debateSessions.length} total sessions
+                </p>
               </CardContent>
             </Card>
-
-            <Card className="stat-card success">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+                <UsersIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
               <CardContent>
-                <div className="stat-content">
-                  <div className="stat-icon">
-                    <Trophy className="h-6 w-6" />
-                  </div>
-                  <div className="stat-info">
-                    <div className="stat-value">{getWinRate()}%</div>
-                    <div className="stat-label">Win Rate</div>
-                  </div>
-                </div>
+                <div className="text-2xl font-bold">{userCount}</div>
+                <p className="text-xs text-muted-foreground">
+                  Students and Moderators
+                </p>
               </CardContent>
             </Card>
-
-            <Card className="stat-card accent">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Topics to Review
+                </CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
               <CardContent>
-                <div className="stat-content">
-                  <div className="stat-icon">
-                    <Star className="h-6 w-6" />
-                  </div>
-                  <div className="stat-info">
-                    <div className={`stat-value ${getRatingColor(stats.current_rating)}`}>
-                      {stats.current_rating}
-                    </div>
-                    <div className="stat-label">{getRatingLevel(stats.current_rating)}</div>
-                  </div>
-                </div>
+                <div className="text-2xl font-bold">5</div>
+                <p className="text-xs text-muted-foreground">Pending approval</p>
               </CardContent>
             </Card>
-
-            <Card className="stat-card warning">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Your Role</CardTitle>
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
               <CardContent>
-                <div className="stat-content">
-                  <div className="stat-icon">
-                    <Activity className="h-6 w-6" />
-                  </div>
-                  <div className="stat-info">
-                    <div className="stat-value">{stats.debates_this_week}</div>
-                    <div className="stat-label">This Week</div>
-                  </div>
+                <div className="text-2xl font-bold">Moderator</div>
+                <p className="text-xs text-muted-foreground">
+                  Platform administrator
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Debates
+                </CardTitle>
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {stats?.debates_participated ?? '...'}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {stats?.debates_this_week ?? '...'} this week
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
+                <Trophy className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{winRate}%</div>
+                <p className="text-xs text-muted-foreground">
+                  Based on {stats?.debates_participated ?? '...'} debates
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Current Rating
+                </CardTitle>
+                <Star className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {stats?.current_rating ?? '...'}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Top 20% of users
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Active Debates
+                </CardTitle>
+                <UsersIcon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {debateSessions.filter((s) => s.is_ongoing).length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Join a session now
+                </p>
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* Main Content Grid */}
-        <div className="dashboard-content">
-          {/* Active Debates */}
-          <div className="dashboard-section">
-            <div className="section-header">
-              <h2 className="section-title">Active Debates</h2>
-              <Button variant="ghost" size="sm">
-                View All
-              </Button>
-            </div>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Active Debates</h2>
+          <p className="text-muted-foreground">
+            Join an ongoing debate or continue one you've already joined.
+          </p>
+        </div>
 
-            <div className="debates-grid">
-              {debateSessions.length > 0 ? (
-                debateSessions.slice(0, 6).map((session) => (
-                  <Card key={session.id} className="debate-card">
-                    <CardContent>
-                      <div className="debate-header">
-                        <div className="debate-status">
-                          {session.is_ongoing ? (
-                            <span className="status-badge live">
-                              <Zap className="h-3 w-3" />
-                              Live
-                            </span>
-                          ) : (
-                            <span className="status-badge scheduled">
-                              <Clock className="h-3 w-3" />
-                              Scheduled
-                            </span>
-                          )}
-                        </div>
-                        <div className="debate-meta">
-                          {safeGetTimeAgo(session.start_time)}
-                        </div>
-                      </div>
-
-                      <h3 className="debate-title">{session.title}</h3>
-                      <p className="debate-description">{session.description}</p>
-
-                      <div className="debate-topic">
-                        <Target className="h-4 w-4" />
-                        <span>{session.topic.title}</span>
-                      </div>
-
-                      <div className="debate-footer">
-                        <div className="participants-info">
-                          <Users className="h-4 w-4" />
-                          <span>{session.participants_count}/{session.max_participants}</span>
-                        </div>
-
-                        <div className="debate-actions">
-                          {session.user_has_joined ? (
-                            <Button 
-                              variant="primary" 
-                              size="sm"
-                              onClick={() => handleContinueSession(session.id)}
-                            >
-                              Continue
-                            </Button>
-                          ) : (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleJoinSession(session.id)}
-                              disabled={session.participants_count >= session.max_participants}
-                            >
-                              Join Debate
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <div className="empty-state">
-                  <MessageCircle className="h-12 w-12 text-secondary-muted" />
-                  <h3 className="text-lg font-semibold text-secondary">No active debates</h3>
-                  <p className="text-secondary-muted">Start a new debate or join an existing one to get started.</p>
-                  <Button 
-                    variant="primary" 
-                    className="mt-4"
-                    onClick={() => navigate('/debates/new')}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Debate
-                  </Button>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {debateSessions.map((session) => (
+            <Card key={session.id}>
+              <CardHeader>
+                <CardTitle>{session.topic.title}</CardTitle>
+                <CardDescription>
+                  Hosted by {session.created_by.username}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <span>{new Date(session.start_time).toLocaleDateString()}</span>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <Card className="quick-actions-card">
-            <CardContent>
-              <h2 className="section-title mb-4">Quick Actions</h2>
-              <div className="quick-actions-grid">
-                <button 
-                  className="quick-action"
-                  onClick={() => navigate('/debates/browse')}
-                >
-                  <div className="quick-action-icon primary">
-                    <Calendar className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="quick-action-title">Browse Debates</div>
-                    <div className="quick-action-desc">Find interesting topics</div>
-                  </div>
-                </button>
-
-                <button 
-                  className="quick-action"
-                  onClick={() => navigate('/profile')}
-                >
-                  <div className="quick-action-icon success">
-                    <Award className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="quick-action-title">View Progress</div>
-                    <div className="quick-action-desc">Track your improvement</div>
-                  </div>
-                </button>
-
-                <button 
-                  className="quick-action"
-                  onClick={() => navigate('/community')}
-                >
-                  <div className="quick-action-icon accent">
-                    <Users className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="quick-action-title">Community</div>
-                    <div className="quick-action-desc">Connect with debaters</div>
-                  </div>
-                </button>
-
-                {user?.role === 'MODERATOR' && (
-                  <button 
-                    className="quick-action"
-                    onClick={() => navigate('/moderation')}
-                  >
-                    <div className="quick-action-icon warning">
-                      <Crown className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <div className="quick-action-title">Moderation</div>
-                      <div className="quick-action-desc">Manage debates</div>
-                    </div>
-                  </button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>
+                    {session.is_ongoing ? 'Ongoing' : 'Starts soon'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <UsersIcon className="h-4 w-4" />
+                  <span>
+                    {session.participants_count ?? 0} / {session.max_participants}{' '}
+                    participants
+                  </span>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full">
+                  <Link to={`/debate/${session.id}`}>
+                    {session.user_has_joined ? 'Continue' : 'Join'} Debate
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
         </div>
       </div>
     </Layout>

@@ -1,6 +1,17 @@
-import { useState, useRef, useEffect } from 'react';
-import { Bell, Check, Trash2, MessageSquare, Users, Award } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui';
+import { useState } from 'react';
+import { Bell, Check } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/utils';
+import { getTimeAgo } from '@/utils';
 
 interface Notification {
   id: string;
@@ -12,206 +23,110 @@ interface Notification {
   actionUrl?: string;
 }
 
-// Mock data - replace with actual API call
 const mockNotifications: Notification[] = [
   {
     id: '1',
     type: 'debate_invite',
     title: 'New Debate Invitation',
-    message: 'You\'ve been invited to join "Climate Change Solutions"',
-    timestamp: '2025-06-22T10:30:00Z',
+    message: "You've been invited to 'Climate Change Solutions'",
+    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
     isRead: false,
-    actionUrl: '/debates/123'
   },
   {
     id: '2',
     type: 'debate_result',
     title: 'Debate Concluded',
-    message: 'The debate "AI Ethics" has ended. Check the results!',
-    timestamp: '2025-06-22T09:15:00Z',
+    message: 'The debate "AI Ethics" has ended. See the results.',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
     isRead: false,
-    actionUrl: '/debates/456/results'
   },
   {
     id: '3',
     type: 'achievement',
     title: 'Achievement Unlocked!',
-    message: 'You\'ve earned the "Persuasive Debater" badge',
-    timestamp: '2025-06-21T16:45:00Z',
+    message: 'You earned the "First Victory" badge.',
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
     isRead: true,
-    actionUrl: '/profile/achievements'
   },
-  {
-    id: '4',
-    type: 'system',
-    title: 'Platform Update',
-    message: 'New features have been added to improve your debate experience',
-    timestamp: '2025-06-21T12:00:00Z',
-    isRead: true,
-    actionUrl: '/updates'
-  }
 ];
 
-const getNotificationIcon = (type: Notification['type']) => {
-  switch (type) {
-    case 'debate_invite':
-      return <MessageSquare className="h-4 w-4" />;
-    case 'debate_result':
-      return <Users className="h-4 w-4" />;
-    case 'achievement':
-      return <Award className="h-4 w-4" />;
-    case 'system':
-      return <Bell className="h-4 w-4" />;
-    default:
-      return <Bell className="h-4 w-4" />;
-  }
-};
-
-const formatTimeAgo = (timestamp: string): string => {
-  const now = new Date();
-  const time = new Date(timestamp);
-  const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
-  
-  if (diffInMinutes < 1) return 'just now';
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-  
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours}h ago`;
-  
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 7) return `${diffInDays}d ago`;
-  
-  return time.toLocaleDateString();
-};
-
 export function NotificationDropdown() {
-  const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, isRead: true } : n)
+  const handleMarkAllAsRead = () => {
+    setNotifications(
+      notifications.map((n) => ({ ...n, isRead: true }))
     );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(n => ({ ...n, isRead: true }))
-    );
-  };
-
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  const handleNotificationClick = (notification: Notification) => {
-    if (!notification.isRead) {
-      markAsRead(notification.id);
-    }
-    if (notification.actionUrl) {
-      window.location.href = notification.actionUrl;
-    }
-    setIsOpen(false);
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="notification-trigger"
-        aria-label="Notifications"
-      >
-        <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="notification-badge">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="notification-dropdown">
-          <Card className="notification-card">
-            <div className="notification-header">
-              <h3 className="text-lg font-semibold">Notifications</h3>
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="btn btn-ghost btn-sm"
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Mark all read
-                </button>
-              )}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <Badge
+              variant="destructive"
+              className="absolute -top-1 -right-1 h-5 w-5 justify-center rounded-full p-0"
+            >
+              {unreadCount}
+            </Badge>
+          )}
+          <span className="sr-only">Notifications</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel className="flex items-center justify-between">
+          <span>Notifications</span>
+          {unreadCount > 0 && (
+            <Badge variant="secondary">{unreadCount} unread</Badge>
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <div className="max-h-80 overflow-y-auto">
+          {notifications.length > 0 ? (
+            notifications.map((notification) => (
+              <DropdownMenuItem
+                key={notification.id}
+                className={cn(
+                  'flex items-start gap-3 p-3',
+                  !notification.isRead && 'bg-accent'
+                )}
+              >
+                <div
+                  className={cn(
+                    'h-2 w-2 rounded-full mt-2',
+                    !notification.isRead ? 'bg-primary' : 'bg-transparent'
+                  )}
+                />
+                <div className="flex-1 space-y-1">
+                  <p className="font-semibold">{notification.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {notification.message}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {getTimeAgo(notification.timestamp)}
+                  </p>
+                </div>
+              </DropdownMenuItem>
+            ))
+          ) : (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No new notifications
             </div>
-
-            <CardContent className="notification-list">
-              {notifications.length === 0 ? (
-                <div className="empty-state">
-                  <Bell className="h-12 w-12 text-secondary mx-auto mb-3" />
-                  <p className="text-secondary text-center">No notifications yet</p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`notification-item ${!notification.isRead ? 'unread' : ''}`}
-                      onClick={() => handleNotificationClick(notification)}
-                    >
-                      <div className="notification-icon">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="notification-content">
-                        <div className="notification-title">
-                          {notification.title}
-                        </div>
-                        <div className="notification-message">
-                          {notification.message}
-                        </div>
-                        <div className="notification-time">
-                          {formatTimeAgo(notification.timestamp)}
-                        </div>
-                      </div>
-                      <div className="notification-actions">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteNotification(notification.id);
-                          }}
-                          className="notification-action-btn"
-                          aria-label="Delete notification"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                      {!notification.isRead && (
-                        <div className="notification-unread-dot"></div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          )}
         </div>
-      )}
-    </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={handleMarkAllAsRead}
+          disabled={unreadCount === 0}
+          className="flex items-center justify-center gap-2"
+        >
+          <Check className="h-4 w-4" />
+          <span>Mark all as read</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

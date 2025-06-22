@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { MessageSquare, Eye, EyeOff } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
+
 import { useAuth } from '@/context/AuthContext';
-import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import type { LoginRequest } from '@/types';
 
 const loginSchema = z.object({
@@ -14,7 +16,6 @@ const loginSchema = z.object({
 });
 
 export function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -29,113 +30,90 @@ export function LoginPage() {
   });
 
   const onSubmit = async (data: LoginRequest) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       await login(data);
       navigate('/dashboard');
     } catch (error: any) {
       console.error('Login error:', error);
-      if (error.response?.status === 401) {
-        setError('root', { message: 'Invalid username or password' });
-      } else {
-        setError('root', { message: 'An error occurred. Please try again.' });
-      }
+      const message =
+        error.response?.status === 401
+          ? 'Invalid username or password'
+          : 'An unexpected error occurred. Please try again.';
+      setError('root', { message });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-header">
-          <div className="auth-brand">
-            <div className="auth-logo">
-              <MessageSquare className="h-12 w-12" />
-            </div>
-            <h1 className="auth-title">Welcome Back</h1>
-            <p className="auth-subtitle">
-              Sign in to continue to DebateHub
+    <div className="w-full lg:grid lg:min-h-[100vh] lg:grid-cols-2 xl:min-h-[100vh]">
+      <div className="flex items-center justify-center py-12">
+        <div className="mx-auto grid w-[350px] gap-6">
+          <div className="grid gap-2 text-center">
+            <h1 className="text-3xl font-bold">Login</h1>
+            <p className="text-balance text-muted-foreground">
+              Enter your username below to login to your account
             </p>
           </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign In</CardTitle>
-            <CardDescription>
-              Enter your credentials to access your account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="form-stack">
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
+            <div className="grid gap-2">
               <Input
-                label="Username"
+                id="username"
                 type="text"
-                autoComplete="username"
-                placeholder="Enter your username"
-                error={errors.username?.message}
+                placeholder="Username"
                 {...register('username')}
+                disabled={isLoading}
               />
-
-              <div className="input-group">
-                <Input
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                  error={errors.password?.message}
-                  {...register('password')}
-                />
-                <button
-                  type="button"
-                  className="input-action-btn"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-
-              {errors.root && (
-                <div className="alert alert-error">
-                  <p>{errors.root.message}</p>
-                </div>
+              {errors.username && (
+                <p className="text-sm text-red-500">{errors.username.message}</p>
               )}
-
-              <div className="flex items-center justify-between">
+            </div>
+            <div className="grid gap-2">
+              <div className="flex items-center">
                 <Link
                   to="/forgot-password"
-                  className="link link-sm"
+                  className="ml-auto inline-block text-sm underline"
                 >
                   Forgot your password?
                 </Link>
               </div>
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="w-full"
-                isLoading={isLoading}
+              <Input
+                id="password"
+                type="password"
+                placeholder="Password"
+                {...register('password')}
                 disabled={isLoading}
-              >
-                {isLoading ? 'Signing in...' : 'Sign in'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <div className="auth-footer">
-          <p className="text-center text-secondary">
-            Don't have an account?{' '}
-            <Link to="/register" className="link">
-              Create one here
+              />
+              {errors.password && (
+                <p className="text-sm text-red-500">{errors.password.message}</p>
+              )}
+            </div>
+            {errors.root && (
+              <p className="text-sm text-red-500 text-center">
+                {errors.root.message}
+              </p>
+            )}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Logging in...' : 'Login'}
+            </Button>
+          </form>
+          <div className="mt-4 text-center text-sm">
+            Don&apos;t have an account?{' '}
+            <Link to="/register" className="underline">
+              Sign up
             </Link>
+          </div>
+        </div>
+      </div>
+      <div className="hidden bg-muted lg:flex lg:items-center lg:justify-center p-8">
+        <div className="text-center">
+            <MessageSquare className="mx-auto h-16 w-16 text-primary" />
+          <h2 className="mt-6 text-3xl font-bold text-primary">
+            Welcome to DebateHub
+          </h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            The platform for engaging and thought-provoking discussions.
           </p>
         </div>
       </div>
