@@ -345,349 +345,254 @@ export function SessionChatPage() {
 
   return (
     <Layout>
-      {/* Full-screen chat layout with proper backgrounds */}
-      <div className="flex flex-col h-screen bg-gray-50 dark:bg-slate-900">
-        {/* Compact Header with clear contrast */}
-        <div className="flex-shrink-0 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => navigate('/dashboard')}
-                  className="flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-all duration-200 font-medium"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                  <span className="hidden sm:inline">Back</span>
-                </button>
-                <div className="border-l border-gray-200 dark:border-slate-600 pl-4">
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {session.topic.title}
-                  </h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">{session.topic.description}</p>
+      <div className="flex h-screen font-sans bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+        
+        {/* --- Sidebar: Session Details --- */}
+        <aside className="w-80 lg:w-96 flex-shrink-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-r border-gray-200/80 dark:border-slate-700/80 hidden md:flex flex-col shadow-lg">
+          <div className="flex-shrink-0 p-6 border-b border-gray-200/80 dark:border-slate-700/80">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-slate-700 dark:hover:to-slate-600 rounded-xl transition-all duration-200 w-full group"
+            >
+              <ArrowLeft className="h-5 w-5 transition-transform duration-200 group-hover:-translate-x-1" />
+              <span>Back to Dashboard</span>
+            </button>
+          </div>
+
+          <div className="flex-1 p-6 overflow-y-auto space-y-6 custom-scrollbar">
+            <div className="space-y-3">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">{session.topic.title}</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{session.topic.description}</p>
+            </div>
+
+            <Card className="bg-gradient-to-br from-gray-50/80 to-blue-50/50 dark:from-slate-900/80 dark:to-slate-800/50 border-gray-200/80 dark:border-slate-700/80 shadow-md hover:shadow-lg transition-shadow duration-200">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  Session Info
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-600 dark:text-gray-400 font-medium">Status</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${session.is_ongoing ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/60 dark:to-emerald-900/60 dark:text-green-200' : 'bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 dark:from-yellow-900/60 dark:to-amber-900/60 dark:text-yellow-200'}`}>
+                    {session.is_ongoing ? '🟢 Live' : '🟡 Scheduled'}
+                  </span>
                 </div>
-              </div>
-              
-              <div className="flex items-center gap-4">
-                <div className="hidden sm:flex items-center gap-4">
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{session.participants_count}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Participants</div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-600 dark:text-gray-400 font-medium">Participants</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">{session.participants_count} / {session.max_participants}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-600 dark:text-gray-400 font-medium">Duration</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">{session.duration_minutes} mins</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-amber-50/80 to-orange-50/50 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-200/80 dark:border-amber-700/80 shadow-md hover:shadow-lg transition-shadow duration-200">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                  Moderator
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
+                    style={{
+                      background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                    }}
+                  >
+                    {getInitials(session.created_by.username)}
                   </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-gray-700 dark:text-gray-300">{session.duration_minutes}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Minutes</div>
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-white text-base">{session.created_by.username}</p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Session Host</p>
                   </div>
                 </div>
-                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-                  session.is_ongoing
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                }`}>
-                  {session.is_ongoing ? 'Live' : 'Scheduled'}
-                </div>
-                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-                  wsConnected 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${
-                    wsConnected ? 'bg-green-500' : 'bg-red-500'
-                  }`}></div>
-                  <span className="hidden sm:inline">{wsConnected ? 'Connected' : 'Connecting...'}</span>
-                </div>
-              </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex-shrink-0 p-6 border-t border-gray-200/80 dark:border-slate-700/80">
+            <div className={`flex items-center justify-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold shadow-sm transition-all duration-200 ${wsConnected ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/60 dark:to-emerald-900/60 dark:text-green-200' : 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/60 dark:to-pink-900/60 dark:text-red-200'}`}>
+              <div className={`w-3 h-3 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse shadow-md' : 'bg-red-500 shadow-md'}`}></div>
+              <span>{wsConnected ? 'Connected' : 'Connecting...'}</span>
             </div>
           </div>
-        </div>
+        </aside>
 
-        {/* Main Chat Container - Flexible height with proper backgrounds */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Chat Area - Primary focus with proper contrast */}
-          <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-800">
-            {/* Chat Header with clear separation */}
-            <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center">
-                  <MessageCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Live Discussion</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {messages.length} {messages.length === 1 ? 'message' : 'messages'}
-                  </p>
-                </div>
-              </div>
-              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                session.is_ongoing
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-              }`}>
-                {session.is_ongoing ? 'Active' : 'Scheduled'}
+        {/* --- Main Chat Area --- */}
+        <main className="flex-1 flex flex-col min-w-0 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900">
+          <header className="flex items-center justify-between p-4 border-b border-gray-200/80 dark:border-slate-700/80 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md sticky top-0 z-10 shadow-sm md:hidden">
+            <button 
+              onClick={() => navigate('/dashboard')} 
+              className="p-2.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div className="text-center flex-1 mx-4">
+              <h2 className="font-semibold text-base text-gray-900 dark:text-white truncate">{session.topic.title}</h2>
+              <div className="flex items-center justify-center gap-2 mt-1">
+                <p className="text-xs text-gray-500 dark:text-gray-400">{session.participants_count} participants</p>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
+                <span className={`text-xs font-medium ${session.is_ongoing ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                  {session.is_ongoing ? 'Live' : 'Scheduled'}
+                </span>
               </div>
             </div>
+            <div className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          </header>
 
-            {/* Messages Area - Perfect contrast and visibility */}
-            <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-slate-900 relative">
+          {/* Messages Container with dedicated scrollbar */}
+          <div 
+            className="flex-1 flex flex-col min-h-0 max-h-full"
+            style={{
+              backgroundColor: '#f8fafc',
+              background: 'linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%)',
+            }}
+          >
+            <div 
+              className="flex-1 overflow-y-auto pt-4 sm:pt-6 px-4 sm:px-6 custom-scrollbar"
+              style={{
+                maxHeight: 'calc(100vh - 200px)', // Fixed height constraint
+                minHeight: '400px'
+              }}
+            >
+              {/* Message container with enhanced background and spacing */}
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                  <div className="w-16 h-16 bg-gray-200 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
-                    <MessageCircle className="h-8 w-8 text-gray-500 dark:text-gray-400" />
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-slate-700 dark:to-slate-800 rounded-full flex items-center justify-center mb-6 shadow-lg">
+                    <MessageCircle className="h-10 w-10 text-blue-500 dark:text-blue-400" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                    No messages yet
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 max-w-sm">
-                    {session.user_has_joined 
-                      ? "Be the first to share your thoughts and start the debate!"
-                      : "Join the session to participate in the discussion"
-                    }
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">Welcome to the debate!</h3>
+                  <p className="text-gray-600 dark:text-gray-400 max-w-md leading-relaxed">
+                    {session.user_has_joined ? "Messages will appear here. Be the first to share your thoughts!" : "You must join the session to see and send messages."}
                   </p>
                 </div>
               ) : (
-                <div className="p-6 space-y-6">
-                  {messages.filter(message => message && message.user).map((message, index) => {
+                <div className="space-y-4 pb-4">
+                  {messages.filter(msg => msg && msg.user).map((message, index) => {
                     const isCurrentUser = message.user.id === user?.id;
                     const isModerator = message.user.role === 'MODERATOR';
-                    const showAvatar = index === 0 || messages[index - 1]?.user?.id !== message.user.id;
-                    const showTimestamp = index === 0 || 
-                      messages[index - 1]?.user?.id !== message.user.id ||
-                      new Date(message.timestamp).getTime() - new Date(messages[index - 1]?.timestamp || '').getTime() > 300000;
-                    
+                    const prevMessage = messages[index - 1];
+                    const showHeader = !prevMessage || prevMessage.user.id !== message.user.id || new Date(message.timestamp).getTime() - new Date(prevMessage.timestamp).getTime() > 300000;
+
                     return (
-                      <div key={message.id} className={`flex gap-4 ${isCurrentUser ? 'flex-row-reverse' : ''}`}>
-                        {/* Avatar with proper contrast */}
-                        <div className="flex-shrink-0">
-                          {showAvatar ? (
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${
-                              isModerator 
-                                ? 'bg-amber-100 text-amber-900 ring-2 ring-amber-300 dark:bg-amber-800 dark:text-amber-100 dark:ring-amber-600' 
-                                : isCurrentUser
-                                ? 'bg-blue-500 text-white dark:bg-blue-600'
-                                : 'bg-gray-300 text-gray-800 dark:bg-slate-600 dark:text-gray-200'
-                            }`}>
+                      <div key={message.id} className={`flex items-start gap-3 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'} ${showHeader ? 'mt-6' : 'mt-1'} transition-all duration-200 hover:scale-[1.01] group`}>
+                        <div className="w-12 flex-shrink-0">
+                          {showHeader && (
+                            <div 
+                              className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shadow-lg transition-transform duration-200 group-hover:scale-110"
+                              style={{
+                                backgroundColor: isModerator ? '#f59e0b' : isCurrentUser ? '#1f2937' : '#7c3aed',
+                                color: '#ffffff',
+                                background: isModerator 
+                                  ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
+                                  : isCurrentUser 
+                                  ? 'linear-gradient(135deg, #1f2937 0%, #111827 100%)' 
+                                  : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)'
+                              }}
+                            >
                               {getInitials(message.user.username)}
                             </div>
-                          ) : (
-                            <div className="w-12"></div>
                           )}
                         </div>
-
-                        {/* Message Content with excellent contrast */}
-                        <div className={`flex-1 min-w-0 max-w-2xl ${isCurrentUser ? 'text-right' : ''}`}>
-                          {/* User info and timestamp */}
-                          {showAvatar && (
-                            <div className={`flex items-center gap-2 mb-2 ${isCurrentUser ? 'flex-row-reverse' : ''}`}>
-                              <span className="font-bold text-gray-900 dark:text-white text-sm">
+                        
+                        <div className={`max-w-lg w-fit ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col`}>
+                          {showHeader && (
+                            <div className={`mb-2 px-1 ${isCurrentUser ? 'text-right' : 'text-left'}`}>
+                              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                                 {isCurrentUser ? 'You' : message.user.username}
                               </span>
                               {isModerator && (
-                                <span className="px-2 py-1 bg-amber-100 text-amber-900 dark:bg-amber-800 dark:text-amber-100 text-xs font-bold rounded-full border border-amber-300 dark:border-amber-600">
-                                  MODERATOR
+                                <span className="ml-2 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-xs font-medium rounded-full">
+                                  Moderator
                                 </span>
                               )}
-                              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                              <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">
                                 {safeFormatTime(message.timestamp)}
-                              </span>
+                              </div>
                             </div>
                           )}
-
-                          {/* Message bubble with perfect visibility */}
-                          <div className={`inline-block px-4 py-3 rounded-2xl max-w-full break-words shadow-md ${
-                            isCurrentUser
-                              ? 'bg-blue-600 text-white dark:bg-blue-500 dark:text-white'
-                              : isModerator
-                              ? 'bg-amber-50 text-amber-900 border-2 border-amber-200 dark:bg-amber-900/30 dark:text-amber-100 dark:border-amber-600/50'
-                              : 'bg-white text-gray-900 border-2 border-gray-200 dark:bg-slate-700 dark:text-gray-100 dark:border-slate-500'
-                          } ${showAvatar ? '' : 'mt-2'}`}>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                          
+                          <div 
+                            className="px-5 py-3 rounded-2xl shadow-lg transition-all duration-200 group-hover:shadow-xl relative"
+                            style={{
+                              backgroundColor: isCurrentUser ? '#1f2937' : isModerator ? '#f59e0b' : '#7c3aed',
+                              color: '#ffffff',
+                              background: isCurrentUser 
+                                ? 'linear-gradient(135deg, #1f2937 0%, #111827 100%)' 
+                                : isModerator 
+                                ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
+                                : 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+                              borderRadius: isCurrentUser ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                            }}
+                          >
+                            <p className="text-base break-words whitespace-pre-wrap font-medium leading-relaxed">
                               {message.content}
                             </p>
+                            {/* Message tail */}
+                            <div 
+                              className="absolute w-3 h-3 transform rotate-45"
+                              style={{
+                                backgroundColor: isCurrentUser ? '#1f2937' : isModerator ? '#f59e0b' : '#7c3aed',
+                                [isCurrentUser ? 'right' : 'left']: '-6px',
+                                bottom: '12px',
+                              }}
+                            />
                           </div>
-
-                          {/* Timestamp for non-avatar messages */}
-                          {!showAvatar && showTimestamp && (
-                            <div className={`text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium ${isCurrentUser ? 'mr-4' : 'ml-4'}`}>
-                              {safeFormatTime(message.timestamp)}
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
                   })}
-                  <div ref={messagesEndRef} />
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
+          </div>
 
-            {/* Message Input - Clean and accessible */}
+          <div className="flex-shrink-0 p-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t border-gray-200/80 dark:border-slate-700/80 shadow-lg">
             {session.user_has_joined ? (
-              <div className="flex-shrink-0 border-t border-gray-200 dark:border-slate-600 p-4 bg-white dark:bg-slate-800">
-                <div className="flex gap-4">
-                  {/* Current user avatar */}
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-blue-500 text-white dark:bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold shadow-sm">
-                      {getInitials(user?.username || '')}
+              <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex items-end gap-3">
+                <div className="flex-1 relative">
+                  <textarea 
+                    ref={inputRef} 
+                    value={newMessage} 
+                    onChange={handleInputChange} 
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} 
+                    placeholder="Type your message..." 
+                    className="w-full p-4 bg-gray-50 dark:bg-slate-700/80 rounded-2xl border-2 border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none resize-none transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 shadow-sm hover:shadow-md focus:shadow-lg" 
+                    rows={1} 
+                    style={{ minHeight: '52px', maxHeight: '120px' }} 
+                    disabled={!wsConnected || sending} 
+                  />
+                  {!wsConnected && (
+                    <div className="absolute inset-0 bg-gray-100/80 dark:bg-slate-700/80 rounded-2xl flex items-center justify-center">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">Connecting...</span>
                     </div>
-                  </div>
-                  
-                  {/* Input area with perfect contrast */}
-                  <div className="flex-1 relative">
-                    <textarea
-                      ref={inputRef}
-                      value={newMessage}
-                      onChange={handleInputChange}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          sendMessage();
-                        }
-                      }}
-                      placeholder={wsConnected ? "Share your thoughts..." : "Connecting to chat..."}
-                      disabled={!wsConnected || sending}
-                      className="w-full px-4 py-3 pr-12 border-2 border-gray-300 dark:border-slate-600 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 shadow-sm font-medium"
-                      style={{ minHeight: '44px', maxHeight: '120px' }}
-                      rows={1}
-                    />
-                    
-                    {/* Send button */}
-                    <button
-                      onClick={sendMessage}
-                      disabled={!wsConnected || !newMessage.trim() || sending}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 w-8 h-8 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-md"
-                    >
-                      {sending ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
+                  )}
                 </div>
-                
-                {/* Helper text with good contrast */}
-                <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 ml-14 font-medium">
-                  Press Enter to send, Shift+Enter for new line
-                </div>
-              </div>
-            ) : (
-              <div className="flex-shrink-0 border-t border-gray-200 dark:border-slate-600 p-6 bg-gray-50 dark:bg-slate-700 text-center">
-                <p className="text-gray-700 dark:text-gray-300 mb-4 font-medium">
-                  You need to join this session to participate in the discussion
-                </p>
-                <button
-                  onClick={async () => {
-                    try {
-                      await apiService.joinSession(parseInt(sessionId!));
-                      window.location.reload();
-                    } catch (error) {
-                      console.error('Failed to join session:', error);
-                      alert('Failed to join session. Please try again.');
-                    }
-                  }}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg"
+                <button 
+                  type="submit" 
+                  className="w-14 h-14 flex-shrink-0 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 dark:from-blue-500 dark:to-blue-600 dark:hover:from-blue-600 dark:hover:to-blue-700 text-white rounded-2xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95" 
+                  disabled={!newMessage.trim() || !wsConnected || sending}
                 >
-                  Join Session
+                  {sending ? 
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div> : 
+                    <Send className="h-6 w-6" />
+                  }
                 </button>
+              </form>
+            ) : (
+              <div className="text-center p-4 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 text-yellow-800 dark:text-yellow-200 rounded-2xl border border-yellow-200 dark:border-yellow-700/50 shadow-sm">
+                <p className="font-medium text-sm">You have not joined this session. Please join to participate in the discussion.</p>
               </div>
             )}
           </div>
-
-          {/* Sidebar - Hidden on mobile, clean on desktop */}
-          <div className="hidden lg:block w-80 flex-shrink-0 border-l border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800">
-            <div className="p-6 space-y-6 h-full overflow-y-auto">
-              {/* Session Status with clear contrast */}
-              <Card className="bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-slate-600 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg text-gray-900 dark:text-white font-bold">Session Status</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${
-                    session.is_ongoing 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${
-                      session.is_ongoing ? 'bg-green-500' : 'bg-gray-500'
-                    }`}></div>
-                    {session.is_ongoing ? 'Live Discussion' : 'Scheduled'}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Session Info with better contrast */}
-              <Card className="bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-slate-600 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg text-gray-900 dark:text-white font-bold">Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Moderator</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-amber-100 text-amber-900 dark:bg-amber-800 dark:text-amber-100 rounded-full flex items-center justify-center text-xs font-bold">
-                        {getInitials(session.created_by.username)}
-                      </div>
-                      <span className="text-sm font-bold text-gray-900 dark:text-white">
-                        {session.created_by.username}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Duration</span>
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">
-                      {session.duration_minutes} minutes
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Participants</span>
-                    <span className="text-sm font-bold text-gray-900 dark:text-white">
-                      {session.participants_count} / {session.max_participants}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">Your Status</span>
-                    <span className={`text-sm font-bold ${
-                      session.user_has_joined 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-gray-600 dark:text-gray-400'
-                    }`}>
-                      {session.user_has_joined ? 'Joined' : 'Not Joined'}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Guidelines with perfect readability */}
-              <Card className="bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-slate-600 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg text-gray-900 dark:text-white font-bold">Guidelines</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
-                    <li className="flex items-start gap-3">
-                      <span className="text-blue-600 dark:text-blue-400 mt-1 text-base">•</span>
-                      <span className="font-medium">Be respectful and constructive</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="text-blue-600 dark:text-blue-400 mt-1 text-base">•</span>
-                      <span className="font-medium">Support arguments with evidence</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="text-blue-600 dark:text-blue-400 mt-1 text-base">•</span>
-                      <span className="font-medium">Stay focused on the topic</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="text-blue-600 dark:text-blue-400 mt-1 text-base">•</span>
-                      <span className="font-medium">Listen to other perspectives</span>
-                    </li>
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
+        </main>
       </div>
     </Layout>
   );
