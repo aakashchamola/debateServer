@@ -69,6 +69,28 @@ class DebateSession(models.Model):
         now = timezone.now()
         return self.start_time <= now <= self.end_time
 
+    @property
+    def has_started(self):
+        from django.utils import timezone
+        now = timezone.now()
+        return now >= self.start_time
+
+    @property
+    def has_ended(self):
+        from django.utils import timezone
+        now = timezone.now()
+        return now > self.end_time
+
+    @property
+    def status(self):
+        """Return the current status of the session"""
+        if self.has_ended:
+            return 'ended'
+        elif self.is_ongoing:
+            return 'ongoing'
+        else:
+            return 'scheduled'
+
 
 class Participant(models.Model):
     """Model for users participating in debate sessions"""

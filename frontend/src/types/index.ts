@@ -50,8 +50,12 @@ export interface DebateSession {
   is_active: boolean;
   max_participants: number;
   is_ongoing?: boolean;
+  has_started?: boolean;
+  has_ended?: boolean;
+  status?: 'scheduled' | 'ongoing' | 'ended';
   participants_count?: number;
   user_has_joined?: boolean;
+  duration_minutes?: number;
 }
 
 export interface Participant {
@@ -108,6 +112,18 @@ export interface DashboardStats {
   debates_won: number;
   current_rating: number;
   debates_this_week: number;
+}
+
+// Notification types
+export interface Notification {
+  id: number;
+  title: string;
+  message: string;
+  notification_type: 'debate_invite' | 'debate_result' | 'achievement' | 'system' | 'moderation';
+  is_read: boolean;
+  action_url?: string;
+  timestamp: string;
+  time_ago: string;
 }
 
 // Form types

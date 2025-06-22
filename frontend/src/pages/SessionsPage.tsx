@@ -24,7 +24,7 @@ import { PlusCircle, Loader2, Users, Calendar, ArrowRight } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import type { DebateSession, CreateSessionForm, DebateTopic } from '@/types';
-import { formatDateTime } from '@/utils';
+import { formatDateTime, cn } from '@/utils';
 import { Link } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -142,14 +142,11 @@ export function SessionsPage() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredSessions.map(session => {
-          const now = new Date();
-          const startTime = new Date(session.start_time);
-          const endTime = new Date(session.end_time);
           let statusBadge;
 
-          if (session.is_ongoing) {
+          if (session.status === 'ongoing') {
             statusBadge = <Badge className="absolute top-4 right-4" variant="default">Live</Badge>;
-          } else if (startTime > now) {
+          } else if (session.status === 'scheduled') {
             statusBadge = <Badge className="absolute top-4 right-4" variant="secondary">Upcoming</Badge>;
           } else {
             statusBadge = <Badge className="absolute top-4 right-4" variant="outline">Ended</Badge>;
@@ -176,9 +173,22 @@ export function SessionsPage() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button asChild className="w-full">
+                <Button 
+                  asChild 
+                  className={cn(
+                    "w-full",
+                    session.status === 'scheduled' && "opacity-50 pointer-events-none",
+                    session.status === 'ended' && "opacity-40"
+                  )}
+                  disabled={session.status === 'scheduled' || session.status === 'ended'}
+                >
                   <Link to={`/debate/${session.id}`}>
-                    {session.user_has_joined ? 'Continue' : 'Join'} Debate
+                    {session.status === 'ended' 
+                      ? 'View Results'
+                      : session.user_has_joined 
+                        ? 'Enter Debate Chat' 
+                        : 'Join & Enter Chat'
+                    }
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>

@@ -156,6 +156,68 @@ class DebateSessionViewSet(viewsets.ModelViewSet):
             'count': len(serializer.data)
         }, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['get'])
+    def my_sessions(self, request):
+        """Get sessions where the current user is a participant"""
+        if not request.user.is_authenticated:
+            return Response(
+                {'error': 'Authentication required'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Get sessions where user is an active participant
+        participant_sessions = DebateSession.objects.filter(
+            participants__user=request.user,
+            participants__is_active=True,
+            is_active=True
+        ).distinct().order_by('-start_time')
+        
+        serializer = self.get_serializer(participant_sessions, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'])
+    def my_stats(self, request):
+        """Get current user's debate statistics"""
+        if not request.user.is_authenticated:
+            return Response(
+                {'error': 'Authentication required'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        user = request.user
+        
+        # Calculate stats
+        total_participated = Participant.objects.filter(
+            user=user, 
+            is_active=True
+        ).count()
+        
+        current_week_start = timezone.now() - timezone.timedelta(days=7)
+        this_week_participated = Participant.objects.filter(
+            user=user,
+            is_active=True,
+            joined_at__gte=current_week_start
+        ).count()
+        
+        messages_sent = Message.objects.filter(
+            sender=user,
+            is_deleted=False
+        ).count()
+        
+        stats = {
+            'debates_participated': total_participated,
+            'debates_won': 0,  # Future feature
+            'current_rating': 1500,  # Future feature
+            'debates_this_week': this_week_participated,
+            'messages_sent': messages_sent,
+            'total_sessions': total_participated,
+        }
+        
+        return Response(stats, status=status.HTTP_200_OK)
+
 
 class ParticipantViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for viewing participants (read-only)"""

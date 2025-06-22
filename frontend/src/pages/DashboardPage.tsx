@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui';
 import { Input } from '@/components/ui';
 import { Label } from '@/components/ui';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ import {
   DialogTrigger,
 } from '@/components/ui';
 import { apiService } from '@/services/api';
+import { cn } from '@/utils';
 import {
   Plus,
   ArrowRight,
@@ -56,17 +58,13 @@ export function DashboardPage() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      
+      // Use different endpoints based on user role
       const [sessionsResponse, statsResponse] = await Promise.all([
-        apiService.getSessions(),
-        // Mocking stats as the endpoint doesn't exist
-        Promise.resolve({
-          data: {
-            debates_participated: 12,
-            debates_won: 8,
-            current_rating: 1520,
-            debates_this_week: 3,
-          },
-        }),
+        user?.role === 'MODERATOR' 
+          ? apiService.getSessions() // Moderators see all sessions
+          : apiService.mySessions(), // Students see only their sessions
+        apiService.myStats(), // Use real stats endpoint
       ]);
 
       if (sessionsResponse.data) {
@@ -265,10 +263,10 @@ export function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {stats?.debates_participated ?? '...'}
+                  {stats?.debates_participated ?? 0}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {stats?.debates_this_week ?? '...'} this week
+                  {stats?.debates_this_week ?? 0} this week
                 </p>
               </CardContent>
             </Card>
@@ -280,7 +278,7 @@ export function DashboardPage() {
               <CardContent>
                 <div className="text-2xl font-bold">{winRate}%</div>
                 <p className="text-xs text-muted-foreground">
-                  Based on {stats?.debates_participated ?? '...'} debates
+                  Based on {stats?.debates_participated ?? 0} debates
                 </p>
               </CardContent>
             </Card>
@@ -293,26 +291,26 @@ export function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {stats?.current_rating ?? '...'}
+                  {stats?.current_rating ?? 1200}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Top 20% of users
+                  {stats?.current_rating ? 'Your skill level' : 'Starting rating'}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Active Debates
+                  Your Sessions
                 </CardTitle>
                 <UsersIcon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {debateSessions.filter((s) => s.is_ongoing).length}
+                  {debateSessions.length}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Join a session now
+                  Sessions you've joined
                 </p>
               </CardContent>
             </Card>
@@ -320,50 +318,119 @@ export function DashboardPage() {
         )}
 
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Active Debates</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {user?.role === 'MODERATOR' ? 'All Debate Sessions' : 'Your Debate Sessions'}
+          </h2>
           <p className="text-muted-foreground">
-            Join an ongoing debate or continue one you've already joined.
+            {user?.role === 'MODERATOR' 
+              ? 'Manage all debate sessions on the platform.'
+              : 'Your participated debate sessions and available sessions to join.'
+            }
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {debateSessions.map((session) => (
-            <Card key={session.id}>
-              <CardHeader>
-                <CardTitle>{session.topic.title}</CardTitle>
-                <CardDescription>
-                  Hosted by {session.created_by.username}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>{new Date(session.start_time).toLocaleDateString()}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  <span>
-                    {session.is_ongoing ? 'Ongoing' : 'Starts soon'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <UsersIcon className="h-4 w-4" />
-                  <span>
-                    {session.participants_count ?? 0} / {session.max_participants}{' '}
-                    participants
-                  </span>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button asChild className="w-full">
-                  <Link to={`/debate/${session.id}`}>
-                    {session.user_has_joined ? 'Continue' : 'Join'} Debate
+          {debateSessions.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+              <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {user?.role === 'MODERATOR' ? 'No sessions created yet' : 'No sessions joined yet'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {user?.role === 'MODERATOR' 
+                  ? 'Create your first debate session to get started.'
+                  : 'Browse available sessions to join your first debate.'
+                }
+              </p>
+              {user?.role !== 'MODERATOR' && (
+                <Button asChild>
+                  <Link to="/sessions">
+                    Browse Sessions
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-              </CardFooter>
-            </Card>
-          ))}
+              )}
+            </div>
+          ) : (
+            debateSessions.map((session) => (
+              <Card key={session.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex-1">{session.topic.title}</CardTitle>
+                    <Badge 
+                      variant={
+                        session.status === 'ongoing' 
+                          ? 'default' 
+                          : session.status === 'ended' 
+                            ? 'secondary' 
+                            : 'outline'
+                      }
+                      className={cn(
+                        session.status === 'ongoing' && 'bg-green-500 hover:bg-green-600',
+                        session.status === 'ended' && 'bg-gray-500',
+                        session.status === 'scheduled' && 'bg-blue-500'
+                      )}
+                    >
+                      {session.status === 'ongoing' 
+                        ? 'Live' 
+                        : session.status === 'ended' 
+                          ? 'Ended' 
+                          : 'Scheduled'
+                      }
+                    </Badge>
+                  </div>
+                  <CardDescription>
+                    Hosted by {session.created_by.username}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>{new Date(session.start_time).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      {session.status === 'ended' 
+                        ? 'Session Ended'
+                        : session.status === 'ongoing' 
+                          ? 'Live Now' 
+                          : `Starts ${new Date(session.start_time).toLocaleTimeString()}`
+                      }
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <UsersIcon className="h-4 w-4" />
+                    <span>
+                      {session.participants_count ?? 0} / {session.max_participants}{' '}
+                      participants
+                    </span>
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    asChild 
+                    className={cn(
+                      "w-full",
+                      session.status === 'scheduled' && "opacity-50 pointer-events-none",
+                      session.status === 'ended' && "opacity-40"
+                    )}
+                    disabled={session.status === 'scheduled' || session.status === 'ended'}
+                  >
+                    <Link to={`/debate/${session.id}`}>
+                      {session.status === 'ended' 
+                        ? 'View Results'
+                        : session.user_has_joined 
+                          ? 'Enter Debate Chat' 
+                          : 'Join & Enter Chat'
+                      }
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))
+          )}
         </div>
       </div>
     </Layout>

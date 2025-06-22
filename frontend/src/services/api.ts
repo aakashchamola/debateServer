@@ -167,6 +167,32 @@ class ApiService {
     return this.api.get(`/api/debates/sessions/${sessionId}/messages/`);
   }
 
+  // New dashboard endpoints
+  async mySessions(): Promise<AxiosResponse<PaginatedResponse<DebateSession>>> {
+    return this.api.get('/api/debates/my_sessions/');
+  }
+
+  async myStats(): Promise<AxiosResponse<any>> {
+    return this.api.get('/api/debates/my_stats/');
+  }
+
+  // Notification methods
+  async getNotifications(): Promise<AxiosResponse<PaginatedResponse<any>>> {
+    return this.api.get('/api/notifications/');
+  }
+
+  async markNotificationRead(id: number): Promise<AxiosResponse<any>> {
+    return this.api.post(`/api/notifications/${id}/mark_read/`);
+  }
+
+  async markAllNotificationsRead(): Promise<AxiosResponse<any>> {
+    return this.api.post('/api/notifications/mark_all_read/');
+  }
+
+  async getUnreadNotificationCount(): Promise<AxiosResponse<{ unread_count: number }>> {
+    return this.api.get('/api/notifications/unread_count/');
+  }
+
   // Message methods
   async getMessages(sessionId: number): Promise<AxiosResponse<PaginatedResponse<Message>>> {
     return this.api.get(`/api/debates/messages/?session=${sessionId}`);

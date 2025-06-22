@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Check } from 'lucide-react';
 import {
   DropdownMenu,
@@ -11,53 +11,62 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/utils';
-import { getTimeAgo } from '@/utils';
-
-interface Notification {
-  id: string;
-  type: 'debate_invite' | 'debate_result' | 'achievement' | 'system';
-  title: string;
-  message: string;
-  timestamp: string;
-  isRead: boolean;
-  actionUrl?: string;
-}
-
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'debate_invite',
-    title: 'New Debate Invitation',
-    message: "You've been invited to 'Climate Change Solutions'",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    isRead: false,
-  },
-  {
-    id: '2',
-    type: 'debate_result',
-    title: 'Debate Concluded',
-    message: 'The debate "AI Ethics" has ended. See the results.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    isRead: false,
-  },
-  {
-    id: '3',
-    type: 'achievement',
-    title: 'Achievement Unlocked!',
-    message: 'You earned the "First Victory" badge.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    isRead: true,
-  },
-];
+import { apiService } from '@/services/api';
+import type { Notification } from '@/types';
 
 export function NotificationDropdown() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const handleMarkAllAsRead = () => {
-    setNotifications(
-      notifications.map((n) => ({ ...n, isRead: true }))
-    );
+  useEffect(() => {
+    fetchNotifications();
+    fetchUnreadCount();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getNotifications();
+      setNotifications(response.data.results || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await apiService.getUnreadNotificationCount();
+      setUnreadCount(response.data.unread_count);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await apiService.markAllNotificationsRead();
+      // Update local state
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId: number) => {
+    try {
+      await apiService.markNotificationRead(notificationId);
+      // Update local state
+      setNotifications(notifications.map(n => 
+        n.id === notificationId ? { ...n, is_read: true } : n
+      ));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
   return (
@@ -85,19 +94,24 @@ export function NotificationDropdown() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="max-h-80 overflow-y-auto">
-          {notifications.length > 0 ? (
+          {loading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              Loading notifications...
+            </div>
+          ) : notifications.length > 0 ? (
             notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
                 className={cn(
-                  'flex items-start gap-3 p-3',
-                  !notification.isRead && 'bg-accent'
+                  'flex items-start gap-3 p-3 cursor-pointer',
+                  !notification.is_read && 'bg-accent'
                 )}
+                onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
               >
                 <div
                   className={cn(
                     'h-2 w-2 rounded-full mt-2',
-                    !notification.isRead ? 'bg-primary' : 'bg-transparent'
+                    !notification.is_read ? 'bg-primary' : 'bg-transparent'
                   )}
                 />
                 <div className="flex-1 space-y-1">
@@ -106,14 +120,14 @@ export function NotificationDropdown() {
                     {notification.message}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {getTimeAgo(notification.timestamp)}
+                    {notification.time_ago}
                   </p>
                 </div>
               </DropdownMenuItem>
             ))
           ) : (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              No new notifications
+              No notifications yet
             </div>
           )}
         </div>

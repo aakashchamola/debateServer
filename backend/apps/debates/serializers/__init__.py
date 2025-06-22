@@ -35,15 +35,22 @@ class DebateSessionSerializer(serializers.ModelSerializer):
     description = serializers.CharField(source='topic.description', read_only=True)
     duration_minutes = serializers.SerializerMethodField()
     is_ongoing = serializers.SerializerMethodField()
+    has_started = serializers.SerializerMethodField()
+    has_ended = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
     user_has_joined = serializers.SerializerMethodField()
     
     class Meta:
         model = DebateSession
         fields = [
             'id', 'topic', 'topic_id', 'title', 'description', 'start_time', 'end_time', 
-            'duration_minutes', 'max_participants', 'participants_count', 'created_by', 'is_ongoing', 'user_has_joined'
+            'duration_minutes', 'max_participants', 'participants_count', 'created_by', 
+            'is_ongoing', 'has_started', 'has_ended', 'status', 'user_has_joined'
         ]
-        read_only_fields = ['id', 'created_by', 'participants_count', 'title', 'description', 'duration_minutes', 'is_ongoing', 'user_has_joined']
+        read_only_fields = [
+            'id', 'created_by', 'participants_count', 'title', 'description', 
+            'duration_minutes', 'is_ongoing', 'has_started', 'has_ended', 'status', 'user_has_joined'
+        ]
 
     def get_participants_count(self, obj):
         return obj.participants.filter(is_active=True).count()
@@ -56,6 +63,15 @@ class DebateSessionSerializer(serializers.ModelSerializer):
     
     def get_is_ongoing(self, obj):
         return obj.is_ongoing
+    
+    def get_has_started(self, obj):
+        return obj.has_started
+    
+    def get_has_ended(self, obj):
+        return obj.has_ended
+    
+    def get_status(self, obj):
+        return obj.status
     
     def get_user_has_joined(self, obj):
         request = self.context.get('request')
