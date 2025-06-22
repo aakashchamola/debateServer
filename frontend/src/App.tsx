@@ -9,7 +9,6 @@ import {
   DashboardPage,
   SessionChatPage,
   ProfilePage,
-  TopicsPage,
   SessionsPage,
   CommunityPage,
 } from '@/pages';
@@ -103,14 +102,6 @@ function AppRoutes() {
       />
 
       {/* Placeholder routes for future pages */}
-      <Route
-        path="/topics"
-        element={
-          <ProtectedRoute>
-            <TopicsPage />
-          </ProtectedRoute>
-        }
-      />
       <Route
         path="/community"
         element={

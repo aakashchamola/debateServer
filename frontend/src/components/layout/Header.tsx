@@ -1,6 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
-  Bell,
   CircleUser,
   Home,
   Menu,
@@ -9,7 +8,6 @@ import {
   Users,
   Moon,
   Sun,
-  FileText,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -32,7 +30,7 @@ import { NotificationDropdown } from './NotificationDropdown';
 
 export function Header() {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -43,7 +41,6 @@ export function Header() {
   const navItems = [
     { to: '/dashboard', icon: Home, label: 'Dashboard' },
     { to: '/sessions', icon: MessageSquare, label: 'Debates' },
-    { to: '/topics', icon: FileText, label: 'Topics' },
     { to: '/community', icon: Users, label: 'Community' },
   ];
 
