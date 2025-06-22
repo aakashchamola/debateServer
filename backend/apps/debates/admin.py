@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.utils import timezone
-from debates.models import DebateTopic, DebateSession, Participant, Message
+from .models import DebateTopic, DebateSession, Participant, Message
 
 
 @admin.register(DebateTopic)

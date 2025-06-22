@@ -34,9 +34,15 @@ class ApiService {
     // Request interceptor to add auth token
     this.api.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        // Don't add auth header to login/register/refresh endpoints
+        const authExcludedPaths = ['/api/users/login/', '/api/users/register/', '/api/users/token/refresh/'];
+        const isAuthExcluded = authExcludedPaths.some(path => config.url?.includes(path));
+        
+        if (!isAuthExcluded) {
+          const token = localStorage.getItem('accessToken');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
         }
         return config;
       },
@@ -169,20 +175,20 @@ class ApiService {
 
   // New dashboard endpoints
   async mySessions(): Promise<AxiosResponse<PaginatedResponse<DebateSession>>> {
-    return this.api.get('/api/debates/my_sessions/');
+    return this.api.get('/api/debates/sessions/my_sessions/');
   }
 
   async myStats(): Promise<AxiosResponse<any>> {
-    return this.api.get('/api/debates/my_stats/');
+    return this.api.get('/api/debates/sessions/my_stats/');
   }
 
   // Notification methods
-  async getNotifications(): Promise<AxiosResponse<PaginatedResponse<any>>> {
+  async getNotifications(): Promise<AxiosResponse<PaginatedResponse<Notification>>> {
     return this.api.get('/api/notifications/');
   }
 
-  async markNotificationRead(id: number): Promise<AxiosResponse<any>> {
-    return this.api.post(`/api/notifications/${id}/mark_read/`);
+  async markNotificationRead(notificationId: number): Promise<AxiosResponse<any>> {
+    return this.api.post(`/api/notifications/${notificationId}/mark_read/`);
   }
 
   async markAllNotificationsRead(): Promise<AxiosResponse<any>> {
@@ -191,6 +197,15 @@ class ApiService {
 
   async getUnreadNotificationCount(): Promise<AxiosResponse<{ unread_count: number }>> {
     return this.api.get('/api/notifications/unread_count/');
+  }
+
+  // User Profile methods
+  async updateProfile(data: Partial<any>): Promise<AxiosResponse<any>> {
+    return this.api.patch('/api/users/profile/', data);
+  }
+
+  async changePassword(data: { current_password: string; new_password: string }): Promise<AxiosResponse<any>> {
+    return this.api.post('/api/users/change-password/', data);
   }
 
   // Message methods
@@ -223,6 +238,11 @@ class ApiService {
 
   isAuthenticated(): boolean {
     return !!this.getAccessToken();
+  }
+
+  async checkUsernameAvailability(username: string): Promise<boolean> {
+    const res = await this.api.get(`/api/users/check-username/?username=${encodeURIComponent(username)}`);
+    return res.data.available;
   }
 }
 

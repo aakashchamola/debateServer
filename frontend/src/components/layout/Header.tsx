@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { NotificationDropdown } from './NotificationDropdown';
+import { NotificationDropdown } from '../NotificationDropdown';
 
 export function Header() {
   const { user, logout } = useAuth();

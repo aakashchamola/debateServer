@@ -8,6 +8,7 @@ export interface User {
   last_name?: string;
   is_active: boolean;
   date_joined: string;
+  notifications_enabled?: boolean; // Read-only, always true
 }
 
 export interface AuthTokens {
@@ -119,7 +120,7 @@ export interface Notification {
   id: number;
   title: string;
   message: string;
-  notification_type: 'debate_invite' | 'debate_result' | 'achievement' | 'system' | 'moderation';
+  notification_type: 'debate_message' | 'debate_invite' | 'debate_result' | 'achievement' | 'system' | 'moderation';
   is_read: boolean;
   action_url?: string;
   timestamp: string;

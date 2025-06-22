@@ -6,6 +6,7 @@ from django.conf import settings
 # Adding Notification model
 class Notification(models.Model):
     NOTIFICATION_TYPES = (
+        ('debate_message', 'New Debate Message'),
         ('debate_invite', 'Debate Invitation'),
         ('debate_result', 'Debate Result'),
         ('achievement', 'Achievement'),

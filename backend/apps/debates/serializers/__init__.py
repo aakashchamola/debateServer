@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from debates.models import DebateTopic, DebateSession, Participant, Message
+from ..models import DebateTopic, DebateSession, Participant, Message
 
 User = get_user_model()
 

@@ -20,6 +20,12 @@ class User(AbstractUser):
         help_text="User role in the debate platform"
     )
     
+    # Notification preferences (always enabled for debate messages)
+    notifications_enabled = models.BooleanField(
+        default=True,
+        help_text="Whether user receives notifications (always True for debate messages)"
+    )
+    
     # Fix related_name conflicts with Django's built-in User model
     groups = models.ManyToManyField(
         Group,

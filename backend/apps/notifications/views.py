@@ -7,6 +7,42 @@ from rest_framework import viewsets, status
 from .models import Notification
 from .serializers import NotificationSerializer
 
+# Utility function to create notifications
+def create_debate_message_notification(message, exclude_user=None):
+    """
+    Create notifications for all participants in a debate when a new message is posted
+    """
+    from apps.debates.models import Participant
+    
+    session = message.session
+    participants = Participant.objects.filter(
+        session=session, 
+        is_active=True
+    ).exclude(user=exclude_user) if exclude_user else Participant.objects.filter(
+        session=session, 
+        is_active=True
+    )
+    
+    # Create notifications for all other participants
+    notifications_to_create = []
+    for participant in participants:
+        if participant.user.notifications_enabled:  # Check if user wants notifications
+            notifications_to_create.append(
+                Notification(
+                    user=participant.user,
+                    title=f"New message in {session.topic.title}",
+                    message=f"{message.sender.username} posted: {message.content[:50]}{'...' if len(message.content) > 50 else ''}",
+                    notification_type='debate_message',
+                    action_url=f"/debate/{session.id}"
+                )
+            )
+    
+    # Bulk create notifications for efficiency
+    if notifications_to_create:
+        Notification.objects.bulk_create(notifications_to_create)
+    
+    return len(notifications_to_create)
+
 # Create your views here.
 
 # Adding NotificationViewSet for managing notifications
@@ -41,7 +77,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         
     @action(detail=False, methods=['get'])
     def unread_count(self, request):
-        """Get the count of unread notifications"""
+        """Get count of unread notifications for the current user"""
         count = Notification.objects.filter(user=request.user, is_read=False).count()
         return Response({
             'unread_count': count

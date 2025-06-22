@@ -1,13 +1,22 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework import status
+from rest_framework import status, viewsets
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from drf_spectacular.utils import extend_schema
 
-from users.serializers import RegisterSerializer, LoginSerializer, UserProfileSerializer
+from .serializers import (
+    RegisterSerializer, 
+    LoginSerializer, 
+    UserProfileSerializer, 
+    ChangePasswordSerializer,
+    UserListSerializer
+)
+
+User = get_user_model()
 
 
 class RegisterView(APIView):
@@ -100,3 +109,41 @@ class ProfileView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChangePasswordView(APIView):
+    """API endpoint for changing password"""
+    permission_classes = [IsAuthenticated]
+    
+    @extend_schema(request=ChangePasswordSerializer, responses={200: {'description': 'Password changed successfully'}})
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response({'message': 'Password changed successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
+    """API endpoints for user management"""
+    queryset = User.objects.all()
+    serializer_class = UserListSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_class(self):
+        if self.action == 'retrieve' and self.get_object() == self.request.user:
+            # Use detailed serializer for user's own profile
+            return UserProfileSerializer
+        return UserListSerializer
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def check_username(request):
+    username = request.query_params.get('username', None)
+    if not username:
+        return Response({'error': 'Username is required.'}, status=400)
+    exists = User.objects.filter(username=username).exists()
+    return Response({'available': not exists})

@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from debates.models import DebateTopic, DebateSession, Participant
+from ...models import DebateTopic, DebateSession, Participant
 from django.utils import timezone
 from datetime import timedelta
 

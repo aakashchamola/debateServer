@@ -6,12 +6,12 @@ from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from debates.models import DebateTopic, DebateSession, Participant, Message
-from debates.serializers import (
+from .models import DebateTopic, DebateSession, Participant, Message
+from .serializers import (
     DebateTopicSerializer, DebateSessionSerializer, 
     ParticipantSerializer, MessageSerializer
 )
-from debates.permissions import IsModerator
+from .permissions import IsModerator
 
 
 class DebateTopicViewSet(viewsets.ModelViewSet):
@@ -281,4 +281,12 @@ class MessageViewSet(viewsets.ModelViewSet):
         if not session.is_ongoing:
             raise ValidationError("Cannot send messages to a session that is not currently ongoing")
         
-        serializer.save(sender=self.request.user, session=session)
+        message = serializer.save(sender=self.request.user, session=session)
+        
+        # Create notifications for other participants
+        try:
+            from apps.notifications.views import create_debate_message_notification
+            create_debate_message_notification(message, exclude_user=self.request.user)
+        except ImportError:
+            # Notifications app not available, skip notification creation
+            pass

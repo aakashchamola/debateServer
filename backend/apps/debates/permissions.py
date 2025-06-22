@@ -35,7 +35,7 @@ class IsParticipantOfSession(BasePermission):
     Custom permission to check if user is a participant of the debate session.
     """
     def has_object_permission(self, request, view, obj):
-        from debates.models import Participant
+        from .models import Participant
         
         # For Message objects, check if user is participant of the session
         if hasattr(obj, 'session'):

@@ -49,11 +49,11 @@ INSTALLED_APPS = [
     'corsheaders',
     
     # Local apps
-    'users',
-    'debates',
-    'moderation',
-    'notifications',
-    'voting',
+    'apps.users',
+    'apps.debates',
+    'apps.moderation',
+    'apps.notifications',
+    'apps.voting',
 ]
 
 MIDDLEWARE = [

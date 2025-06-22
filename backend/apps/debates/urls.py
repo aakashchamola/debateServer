@@ -1,7 +1,8 @@
-from django.urls import path
+from django.urls import path, include
 
-# No router registration here, as it's handled in apps/debates/urls/__init__.py.
+# Import the router configuration from the urls directory
+from .urls import router
 
 urlpatterns = [
-    # You can add any non-viewset URLs if needed.
+    path('', include(router.urls)),
 ]

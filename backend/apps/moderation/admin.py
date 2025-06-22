@@ -1,5 +1,5 @@
 from django.contrib import admin
-from moderation.models import ModerationAction
+from .models import ModerationAction
 
 
 @admin.register(ModerationAction)

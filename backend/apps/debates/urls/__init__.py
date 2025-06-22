@@ -1,5 +1,5 @@
 from rest_framework.routers import DefaultRouter
-from debates.views import DebateTopicViewSet, DebateSessionViewSet, ParticipantViewSet, MessageViewSet
+from ..views import DebateTopicViewSet, DebateSessionViewSet, ParticipantViewSet, MessageViewSet
 
 router = DefaultRouter()
 router.register(r'topics', DebateTopicViewSet, basename='topic')
