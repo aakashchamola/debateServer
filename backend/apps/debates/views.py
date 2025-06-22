@@ -60,11 +60,19 @@ class DebateSessionViewSet(viewsets.ModelViewSet):
             )
         
         # Check if user is already a participant
-        if Participant.objects.filter(user=request.user, session=session).exists():
-            return Response(
-                {'error': 'You are already a participant in this session'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        existing_participant = Participant.objects.filter(user=request.user, session=session).first()
+        if existing_participant:
+            if existing_participant.is_active:
+                return Response(
+                    {'error': 'You are already a participant in this session'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                # Reactivate the participant
+                existing_participant.is_active = True
+                existing_participant.save()
+                serializer = ParticipantSerializer(existing_participant)
+                return Response(serializer.data, status=status.HTTP_200_OK)
         
         # Check participant limit
         if session.participants.filter(is_active=True).count() >= session.max_participants:

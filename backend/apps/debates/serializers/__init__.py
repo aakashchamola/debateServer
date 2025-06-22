@@ -30,15 +30,38 @@ class DebateSessionSerializer(serializers.ModelSerializer):
     topic = DebateTopicSerializer(read_only=True)
     created_by = UserBasicSerializer(read_only=True)
     topic_id = serializers.IntegerField(write_only=True)
-    participant_count = serializers.SerializerMethodField()
+    participants_count = serializers.SerializerMethodField()
+    title = serializers.CharField(source='topic.title', read_only=True)
+    description = serializers.CharField(source='topic.description', read_only=True)
+    duration_minutes = serializers.SerializerMethodField()
+    is_ongoing = serializers.SerializerMethodField()
+    user_has_joined = serializers.SerializerMethodField()
     
     class Meta:
         model = DebateSession
-        fields = ['id', 'topic', 'topic_id', 'start_time', 'end_time', 'created_by', 'participant_count']
-        read_only_fields = ['id', 'created_by', 'participant_count']
+        fields = [
+            'id', 'topic', 'topic_id', 'title', 'description', 'start_time', 'end_time', 
+            'duration_minutes', 'max_participants', 'participants_count', 'created_by', 'is_ongoing', 'user_has_joined'
+        ]
+        read_only_fields = ['id', 'created_by', 'participants_count', 'title', 'description', 'duration_minutes', 'is_ongoing', 'user_has_joined']
 
-    def get_participant_count(self, obj):
-        return obj.participants.count()
+    def get_participants_count(self, obj):
+        return obj.participants.filter(is_active=True).count()
+    
+    def get_duration_minutes(self, obj):
+        if obj.start_time and obj.end_time:
+            duration = obj.end_time - obj.start_time
+            return int(duration.total_seconds() / 60)
+        return 0
+    
+    def get_is_ongoing(self, obj):
+        return obj.is_ongoing
+    
+    def get_user_has_joined(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.participants.filter(user=request.user, is_active=True).exists()
+        return False
 
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user

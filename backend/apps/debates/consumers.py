@@ -67,31 +67,47 @@ class DebateConsumer(AsyncJsonWebsocketConsumer):
 
     async def handle_chat_message(self, content):
         """Handle chat messages"""
-        message_content = content.get('message', '').strip()
+        print(f"Received message content: {content}")
+        message_content = content.get('content', '').strip()
         
         if not message_content:
+            print("Empty message content")
             await self.send_json({
                 'type': 'error',
                 'message': 'Message cannot be empty'
             })
             return
 
+        print(f"Processing message: {message_content}")
+        
         # Save message to database
         message = await self.save_message(message_content)
         
         if message:
+            print(f"Message saved successfully, broadcasting to group: {self.room_group_name}")
             # Send message to room group
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'chat_message',
-                    'message': message_content,
-                    'sender': self.user.username,
-                    'sender_id': self.user.id,
-                    'timestamp': message.timestamp.isoformat(),
-                    'message_id': message.id
+                    'message': {
+                        'id': message.id,
+                        'content': message_content,
+                        'user': {
+                            'id': self.user.id,
+                            'username': self.user.username,
+                            'role': self.user.role
+                        },
+                        'timestamp': message.timestamp.isoformat()
+                    }
                 }
             )
+        else:
+            print("Failed to save message")
+            await self.send_json({
+                'type': 'error',
+                'message': 'Failed to save message'
+            })
 
     async def handle_typing_indicator(self, content):
         """Handle typing indicators"""
@@ -111,11 +127,7 @@ class DebateConsumer(AsyncJsonWebsocketConsumer):
         """Send chat message to WebSocket"""
         await self.send_json({
             'type': 'chat_message',
-            'message': event['message'],
-            'sender': event['sender'],
-            'sender_id': event['sender_id'],
-            'timestamp': event['timestamp'],
-            'message_id': event['message_id']
+            'message': event['message']
         })
 
     async def typing_indicator(self, event):
@@ -146,15 +158,21 @@ class DebateConsumer(AsyncJsonWebsocketConsumer):
         try:
             session = DebateSession.objects.get(id=self.session_id, is_active=True)
             
-            # Check if session is ongoing
-            if not session.is_ongoing:
-                return None
+            # For testing, allow messages even if session is not ongoing
+            # TODO: Re-enable this check for production
+            # if not session.is_ongoing:
+            #     return None
                 
             message = Message.objects.create(
                 session=session,
                 sender=self.user,
                 content=content
             )
+            print(f"Message saved: {message.id} - {content[:50]}...")
             return message
         except DebateSession.DoesNotExist:
+            print(f"Session {self.session_id} not found")
+            return None
+        except Exception as e:
+            print(f"Error saving message: {e}")
             return None

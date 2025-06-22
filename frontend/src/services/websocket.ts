@@ -22,7 +22,7 @@ class WebSocketService {
   private reconnectDelay = 1000;
 
   constructor() {
-    this.baseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000';
+    this.baseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8001';
   }
 
   /**

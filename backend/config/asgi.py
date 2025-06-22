@@ -26,10 +26,11 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 from django.urls import path
 from debates.consumers import DebateConsumer
+from debates.middleware import JWTAuthMiddlewareStack
 
+# WebSocket-only ASGI application
 application = ProtocolTypeRouter({
-    "http": get_asgi_application(),
-    "websocket": AuthMiddlewareStack(
+    "websocket": JWTAuthMiddlewareStack(
         URLRouter([
             path("ws/debate/<int:session_id>/", DebateConsumer.as_asgi()),
         ])
