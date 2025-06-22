@@ -7,7 +7,15 @@ import { MessageSquare } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
 import type { LoginRequest } from '@/types';
 
 const loginSchema = z.object({
@@ -47,74 +55,76 @@ export function LoginPage() {
   };
 
   return (
-    <div className="w-full lg:grid lg:min-h-[100vh] lg:grid-cols-2 xl:min-h-[100vh]">
-      <div className="flex items-center justify-center py-12">
-        <div className="mx-auto grid w-[350px] gap-6">
-          <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold">Login</h1>
-            <p className="text-balance text-muted-foreground">
-              Enter your username below to login to your account
-            </p>
-          </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
-            <div className="grid gap-2">
-              <Input
-                id="username"
-                type="text"
-                placeholder="Username"
-                {...register('username')}
-                disabled={isLoading}
-              />
-              {errors.username && (
-                <p className="text-sm text-red-500">{errors.username.message}</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Link
-                  to="/forgot-password"
-                  className="ml-auto inline-block text-sm underline"
-                >
-                  Forgot your password?
-                </Link>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Password"
-                {...register('password')}
-                disabled={isLoading}
-              />
-              {errors.password && (
-                <p className="text-sm text-red-500">{errors.password.message}</p>
-              )}
-            </div>
-            {errors.root && (
-              <p className="text-sm text-red-500 text-center">
-                {errors.root.message}
-              </p>
-            )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{' '}
-            <Link to="/register" className="underline">
-              Sign up
-            </Link>
-          </div>
-        </div>
-      </div>
-      <div className="hidden bg-muted lg:flex lg:items-center lg:justify-center p-8">
+    <div className="w-full min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-8">
         <div className="text-center">
-            <MessageSquare className="mx-auto h-16 w-16 text-primary" />
-          <h2 className="mt-6 text-3xl font-bold text-primary">
-            Welcome to DebateHub
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            The platform for engaging and thought-provoking discussions.
+          <MessageSquare className="mx-auto h-12 w-12 text-primary" />
+          <h1 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
+            Sign in to DebateHub
+          </h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Welcome back! Please enter your details.
           </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Login</CardTitle>
+            <CardDescription>
+              Enter your username and password to access your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Your username"
+                  {...register('username')}
+                  disabled={isLoading}
+                />
+                {errors.username && (
+                  <p className="text-sm text-red-500">{errors.username.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  {...register('password')}
+                  disabled={isLoading}
+                />
+                {errors.password && (
+                  <p className="text-sm text-red-500">{errors.password.message}</p>
+                )}
+              </div>
+              {errors.root && (
+                <p className="text-sm text-red-500 text-center">
+                  {errors.root.message}
+                </p>
+              )}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+          Don't have an account?{' '}
+          <Link to="/register" className="font-medium text-primary hover:underline">
+            Sign up
+          </Link>
         </div>
       </div>
     </div>

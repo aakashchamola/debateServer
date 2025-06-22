@@ -132,7 +132,7 @@ export function Header() {
               {user ? user.username : 'My Account'}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/profile')}>
+            <DropdownMenuItem onClick={() => navigate(`/profile/${user?.id}`)}>
               Profile
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('/profile')}>

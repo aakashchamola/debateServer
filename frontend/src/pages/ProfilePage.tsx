@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Shield, Bell, Palette, Lock, Save, Camera, Trash2 } from 'lucide-react';
+import { User, Shield, Bell, Palette, Lock, Save, Camera, Trash2, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout';
 import {
   Card,
@@ -19,6 +19,9 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { cn } from '@/utils';
+import { useParams } from 'react-router-dom';
+import { apiService } from '@/services/api';
+import type { User as UserType } from '@/types';
 
 const profileSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
@@ -47,16 +50,40 @@ const securitySchema = z
 type Tab = 'profile' | 'notifications' | 'security' | 'appearance';
 
 export function ProfilePage() {
-  const { user } = useAuth();
+  const { user: authUser } = useAuth();
+  const { userId } = useParams<{ userId: string }>();
+  const [profileUser, setProfileUser] = useState<UserType | null>(null);
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(true);
+
+  const isOwnProfile = !userId || (authUser && authUser.id.toString() === userId);
+
+  useEffect(() => {
+    const fetchProfileUser = async () => {
+      setIsFetchingProfile(true);
+      try {
+        if (isOwnProfile) {
+          setProfileUser(authUser);
+        } else {
+          const response = await apiService.getUser(parseInt(userId!));
+          setProfileUser(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile user', error);
+      } finally {
+        setIsFetchingProfile(false);
+      }
+    };
+    fetchProfileUser();
+  }, [userId, authUser, isOwnProfile]);
 
   const profileForm = useForm({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      username: user?.username || '',
-      email: user?.email || '',
+    values: {
+      username: profileUser?.username || '',
+      email: profileUser?.email || '',
     },
   });
 
@@ -94,18 +121,43 @@ export function ProfilePage() {
 
   const onSecuritySubmit = async (data: any) => {
     setIsLoading(true);
-    console.log('Updating password:', data);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('Security data submitted:', data);
     securityForm.reset();
     setIsLoading(false);
   };
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'security', label: 'Security', icon: Lock },
-    { id: 'appearance', label: 'Appearance', icon: Palette },
+    ...(isOwnProfile
+      ? ([
+          { id: 'notifications', label: 'Notifications', icon: Bell },
+          { id: 'security', label: 'Security', icon: Lock },
+          { id: 'appearance', label: 'Appearance', icon: Palette },
+        ] as { id: Tab; label: string; icon: React.ElementType }[])
+      : []),
   ];
+
+  if (isFetchingProfile) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!profileUser) {
+    return (
+      <Layout>
+        <div className="text-center py-20">
+          <h2 className="text-2xl font-bold">User not found</h2>
+        </div>
+      </Layout>
+    );
+  }
 
   const renderContent = () => {
     switch (activeTab) {
@@ -123,42 +175,46 @@ export function ProfilePage() {
                 <div className="flex items-center gap-6">
                   <div className="relative">
                     <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center text-4xl font-bold text-muted-foreground">
-                      {user?.username ? user.username.charAt(0).toUpperCase() : 'U'}
+                      {profileUser?.username ? profileUser.username.charAt(0).toUpperCase() : 'U'}
                     </div>
-                    <Button size="icon" className="absolute bottom-0 right-0 rounded-full">
-                      <Camera className="h-4 w-4" />
-                    </Button>
+                    {isOwnProfile && (
+                      <Button size="icon" className="absolute bottom-0 right-0 rounded-full">
+                        <Camera className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold">{user?.username}</h3>
-                    <p className="text-sm text-muted-foreground">{user?.email}</p>
+                    <h3 className="text-xl font-bold">{profileUser?.username}</h3>
+                    <p className="text-sm text-muted-foreground">{profileUser?.email}</p>
                     <div className="flex items-center gap-2 mt-2 text-xs font-medium text-muted-foreground">
-                      {user?.role === 'MODERATOR' ? <Shield className="h-4 w-4 text-primary" /> : <User className="h-4 w-4" />}
-                      <span>{user?.role}</span>
+                      {profileUser?.role === 'MODERATOR' ? <Shield className="h-4 w-4 text-primary" /> : <User className="h-4 w-4" />}
+                      <span>{profileUser?.role}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
-                  <Input id="username" {...profileForm.register('username')} />
+                  <Input id="username" {...profileForm.register('username')} disabled={!isOwnProfile} />
                   {profileForm.formState.errors.username && (
                     <p className="text-sm text-red-500">{profileForm.formState.errors.username.message}</p>
                   )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" {...profileForm.register('email')} />
+                  <Input id="email" type="email" {...profileForm.register('email')} disabled={!isOwnProfile} />
                   {profileForm.formState.errors.email && (
                     <p className="text-sm text-red-500">{profileForm.formState.errors.email.message}</p>
                   )}
                 </div>
               </CardContent>
-              <CardFooter className="border-t px-6 py-4">
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </CardFooter>
+              {isOwnProfile && (
+                <CardFooter className="border-t px-6 py-4">
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </CardFooter>
+              )}
             </form>
           </Card>
         );

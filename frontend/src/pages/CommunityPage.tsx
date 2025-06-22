@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Layout } from '@/components/layout';
-import { Card, CardContent } from '@/components/ui';
+import { Card, CardContent, CardFooter } from '@/components/ui';
 import { Input } from '@/components/ui';
-import { Loader2, User, Shield } from 'lucide-react';
+import { Loader2, User, Shield, BarChart2, Trophy } from 'lucide-react';
 import { apiService } from '@/services/api';
 import type { User as UserType } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui';
+import { Link } from 'react-router-dom';
 
 export function CommunityPage() {
   const [users, setUsers] = useState<UserType[]>([]);
@@ -55,18 +57,33 @@ export function CommunityPage() {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {filteredUsers.map(user => (
-          <Card key={user.id}>
-            <CardContent className="flex flex-col items-center text-center p-6">
-              <Avatar className="w-20 h-20 mb-4">
+          <Card key={user.id} className="flex flex-col text-center">
+            <CardContent className="flex-grow flex flex-col items-center p-6">
+              <Avatar className="w-24 h-24 mb-4">
                 <AvatarImage src={`https://api.dicebear.com/8.x/bottts-neutral/svg?seed=${user.username}`} />
                 <AvatarFallback>{user.username.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <h4 className="font-semibold text-lg">{user.username}</h4>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                 {user.role === 'MODERATOR' ? <Shield className="h-4 w-4 text-primary" /> : <User className="h-4 w-4" />}
                 <span className="capitalize">{user.role.toLowerCase()}</span>
               </div>
+              <div className="flex justify-around w-full text-sm text-muted-foreground border-t pt-4">
+                <div className="text-center">
+                  <p className="font-bold text-lg text-foreground">12</p>
+                  <p className="text-xs">Debates</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-bold text-lg text-foreground">75%</p>
+                  <p className="text-xs">Win Rate</p>
+                </div>
+              </div>
             </CardContent>
+            <CardFooter>
+              <Button asChild variant="outline" className="w-full">
+                <Link to={`/profile/${user.id}`}>View Profile</Link>
+              </Button>
+            </CardFooter>
           </Card>
         ))}
       </div>

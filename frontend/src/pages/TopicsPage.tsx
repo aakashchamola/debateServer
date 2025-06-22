@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import type { DebateTopic, CreateTopicForm } from '@/types';
@@ -41,6 +41,9 @@ export function TopicsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState<DebateTopic | null>(null);
 
   const {
     register,
@@ -79,6 +82,41 @@ export function TopicsPage() {
     }
   };
   
+  const handleUpdateTopic = async (data: CreateTopicForm) => {
+    if (!selectedTopic) return;
+    try {
+      const updatedTopic = await apiService.updateTopic(selectedTopic.id, data);
+      setTopics(topics.map(t => t.id === selectedTopic.id ? updatedTopic.data : t));
+      setIsEditDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to update topic:', error);
+      // TODO: show error to user
+    }
+  };
+
+  const handleDeleteTopic = async () => {
+    if (!selectedTopic) return;
+    try {
+      await apiService.deleteTopic(selectedTopic.id);
+      setTopics(topics.filter(t => t.id !== selectedTopic.id));
+      setIsDeleteDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to delete topic:', error);
+      // TODO: show error to user
+    }
+  };
+
+  const openEditDialog = (topic: DebateTopic) => {
+    setSelectedTopic(topic);
+    reset({ title: topic.title, description: topic.description });
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (topic: DebateTopic) => {
+    setSelectedTopic(topic);
+    setIsDeleteDialogOpen(true);
+  };
+
   const filteredTopics = topics.filter(topic =>
     topic.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     topic.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -115,8 +153,18 @@ export function TopicsPage() {
             <CardContent className="flex-grow">
               <p className="text-sm text-muted-foreground">{topic.description}</p>
             </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full">View Debates</Button>
+            <CardFooter className="flex items-center justify-between">
+              <Button variant="outline" className="flex-grow">View Debates</Button>
+              {user?.role === 'MODERATOR' && (
+                <div className="flex items-center ml-4 gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(topic)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(topic)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              )}
             </CardFooter>
           </Card>
         ))}
@@ -179,6 +227,50 @@ export function TopicsPage() {
         </div>
 
         {renderContent()}
+
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Topic</DialogTitle>
+              <DialogDescription>
+                Update the details for your topic. Click save when you're done.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit(handleUpdateTopic)} className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="edit-title">Topic Title</Label>
+                <Input id="edit-title" {...register('title')} />
+                {errors.title && <p className="text-sm text-red-500 mt-1">{errors.title.message}</p>}
+              </div>
+              <div>
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea id="edit-description" {...register('description')} />
+                {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description.message}</p>}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">Save Changes</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Are you sure?</DialogTitle>
+              <DialogDescription>
+                This action cannot be undone. This will permanently delete the topic and all associated debates.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleDeleteTopic}>Delete Topic</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

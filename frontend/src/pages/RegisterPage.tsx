@@ -9,6 +9,13 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/Card';
 import type { RegisterRequest } from '@/types';
 import { cn } from '@/utils';
 
@@ -69,116 +76,102 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="w-full lg:grid lg:min-h-[100vh] lg:grid-cols-2 xl:min-h-[100vh]">
-      <div className="flex items-center justify-center py-12">
-        <div className="mx-auto grid w-[400px] gap-6">
-          <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold">Create an account</h1>
-            <p className="text-balance text-muted-foreground">
-              Enter your information to create an account
-            </p>
-          </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                placeholder="Your username"
-                {...register('username')}
-                disabled={isLoading}
-              />
-              {errors.username && (
-                <p className="text-sm text-red-500">{errors.username.message}</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                {...register('email')}
-                disabled={isLoading}
-              />
-              {errors.email && (
-                <p className="text-sm text-red-500">{errors.email.message}</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label>Role</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <Button
-                  type="button"
-                  variant={selectedRole === 'STUDENT' ? 'default' : 'outline'}
-                  onClick={() => setValue('role', 'STUDENT')}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Student
-                </Button>
-                <Button
-                  type="button"
-                  variant={
-                    selectedRole === 'MODERATOR' ? 'default' : 'outline'
-                  }
-                  onClick={() => setValue('role', 'MODERATOR')}
-                >
-                  <Shield className="mr-2 h-4 w-4" />
-                  Moderator
-                </Button>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                {...register('password')}
-                disabled={isLoading}
-              />
-              {errors.password && (
-                <p className="text-sm text-red-500">{errors.password.message}</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password_confirm">Confirm Password</Label>
-              <Input
-                id="password_confirm"
-                type="password"
-                {...register('password_confirm')}
-                disabled={isLoading}
-              />
-              {errors.password_confirm && (
-                <p className="text-sm text-red-500">
-                  {errors.password_confirm.message}
-                </p>
-              )}
-            </div>
-            {errors.root && (
-              <p className="text-sm text-red-500 text-center">
-                {errors.root.message}
-              </p>
-            )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Creating account...' : 'Create account'}
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-sm">
-            Already have an account?{' '}
-            <Link to="/login" className="underline">
-              Sign in
-            </Link>
-          </div>
-        </div>
-      </div>
-      <div className="hidden bg-muted lg:flex lg:items-center lg:justify-center p-8">
+    <div className="w-full min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-lg p-8 space-y-8">
         <div className="text-center">
-            <MessageSquare className="mx-auto h-16 w-16 text-primary" />
-          <h2 className="mt-6 text-3xl font-bold text-primary">
-            Join the Conversation
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Engage in discussions that matter. Share your perspective.
+          <MessageSquare className="mx-auto h-12 w-12 text-primary" />
+          <h1 className="mt-6 text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
+            Create your DebateHub account
+          </h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Join the community and start debating.
           </p>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign Up</CardTitle>
+            <CardDescription>
+              Choose your role and fill in your details to get started.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Choose your role</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div
+                    className={cn(
+                      'p-4 rounded-lg border-2 cursor-pointer transition-all',
+                      selectedRole === 'STUDENT' ? 'border-primary bg-primary/10' : 'hover:border-primary/50'
+                    )}
+                    onClick={() => setValue('role', 'STUDENT')}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <Users className="h-6 w-6 text-primary" />
+                      <h3 className="font-semibold">Student</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Participate in debates, vote, and build your reputation.
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      'p-4 rounded-lg border-2 cursor-pointer transition-all',
+                      selectedRole === 'MODERATOR' ? 'border-primary bg-primary/10' : 'hover:border-primary/50'
+                    )}
+                    onClick={() => setValue('role', 'MODERATOR')}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <Shield className="h-6 w-6 text-primary" />
+                      <h3 className="font-semibold">Moderator</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Create topics, manage sessions, and moderate discussions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input id="username" {...register('username')} disabled={isLoading} />
+                  {errors.username && <p className="text-sm text-red-500">{errors.username.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" {...register('email')} disabled={isLoading} />
+                  {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input id="password" type="password" {...register('password')} disabled={isLoading} />
+                  {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password_confirm">Confirm Password</Label>
+                  <Input id="password_confirm" type="password" {...register('password_confirm')} disabled={isLoading} />
+                  {errors.password_confirm && <p className="text-sm text-red-500">{errors.password_confirm.message}</p>}
+                </div>
+              </div>
+
+              {errors.root && (
+                <p className="text-sm text-red-500 text-center">{errors.root.message}</p>
+              )}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Creating Account...' : 'Create Account'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+          Already have an account?{' '}
+          <Link to="/login" className="font-medium text-primary hover:underline">
+            Sign In
+          </Link>
         </div>
       </div>
     </div>

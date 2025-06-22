@@ -21,12 +21,14 @@ class DebateConsumer(AsyncJsonWebsocketConsumer):
 
         # Check if user is authenticated
         if isinstance(self.user, AnonymousUser):
-            await self.close()
+            print(f"WebSocket connection rejected: Anonymous user trying to connect to session {self.session_id}")
+            await self.close(code=4001)  # Custom close code for authentication error
             return
 
         # Check if session exists and user is a participant
         if not await self.is_valid_participant():
-            await self.close()
+            print(f"WebSocket connection rejected: User {self.user.username} is not a valid participant in session {self.session_id}")
+            await self.close(code=4003)  # Custom close code for invalid participant
             return
 
         # Join room group
@@ -233,6 +235,7 @@ class DebateConsumer(AsyncJsonWebsocketConsumer):
                 is_active=True
             ).exists()
         except DebateSession.DoesNotExist:
+            print(f"DebateSession with id {self.session_id} does not exist or is not active")
             return False
 
     @database_sync_to_async
@@ -281,6 +284,9 @@ class DebateConsumer(AsyncJsonWebsocketConsumer):
             online_count = OnlineParticipant.objects.filter(session=session).count()
             total_participants = Participant.objects.filter(session=session, is_active=True).count()
             return online_count, total_participants
+        except DebateSession.DoesNotExist:
+            print(f"Error getting participant counts: DebateSession with id {self.session_id} does not exist.")
+            return 0, 0
         except Exception as e:
             print(f"Error getting participant counts: {e}")
             return 0, 0
