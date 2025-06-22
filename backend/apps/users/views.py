@@ -1,20 +1,25 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import authenticate, get_user_model
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema
+from django.shortcuts import get_object_or_404
 
 from .serializers import (
     RegisterSerializer, 
     LoginSerializer, 
     UserProfileSerializer, 
     ChangePasswordSerializer,
-    UserListSerializer
+    UserListSerializer,
+    UserStatsSerializer,
+    LeaderboardUserSerializer
 )
+from .models import UserStats
 
 User = get_user_model()
 
@@ -128,15 +133,111 @@ class ChangePasswordView(APIView):
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoints for user management"""
-    queryset = User.objects.all()
+    queryset = User.objects.filter(is_active=True)
     serializer_class = UserListSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'bio']
+    ordering_fields = ['rating', 'date_joined', 'username']
+    ordering = ['-rating']
     
     def get_serializer_class(self):
         if self.action == 'retrieve' and self.get_object() == self.request.user:
             # Use detailed serializer for user's own profile
             return UserProfileSerializer
         return UserListSerializer
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    @action(detail=True, methods=['post'])
+    def follow(self, request, pk=None):
+        """Follow a user"""
+        user_to_follow = self.get_object()
+        
+        if user_to_follow == request.user:
+            return Response(
+                {'error': 'You cannot follow yourself'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        request.user.follow(user_to_follow)
+        serializer = UserListSerializer(user_to_follow, context={'request': request})
+        
+        return Response({
+            'message': f'You are now following {user_to_follow.username}',
+            'user': serializer.data
+        })
+    
+    @action(detail=True, methods=['post'])
+    def unfollow(self, request, pk=None):
+        """Unfollow a user"""
+        user_to_unfollow = self.get_object()
+        
+        request.user.unfollow(user_to_unfollow)
+        serializer = UserListSerializer(user_to_unfollow, context={'request': request})
+        
+        return Response({
+            'message': f'You are no longer following {user_to_unfollow.username}',
+            'user': serializer.data
+        })
+    
+    @action(detail=True, methods=['get'])
+    def followers(self, request, pk=None):
+        """Get list of user's followers"""
+        user = self.get_object()
+        followers = user.followers.filter(is_active=True)
+        serializer = UserListSerializer(followers, many=True, context={'request': request})
+        
+        return Response({
+            'count': followers.count(),
+            'results': serializer.data
+        })
+    
+    @action(detail=True, methods=['get'])
+    def following(self, request, pk=None):
+        """Get list of users this user is following"""
+        user = self.get_object()
+        following = user.following.filter(is_active=True)
+        serializer = UserListSerializer(following, many=True, context={'request': request})
+        
+        return Response({
+            'count': following.count(),
+            'results': serializer.data
+        })
+    
+    @action(detail=False, methods=['get'])
+    def my_following(self, request):
+        """Get list of users the current user is following"""
+        following = request.user.following.filter(is_active=True)
+        serializer = UserListSerializer(following, many=True, context={'request': request})
+        
+        return Response({
+            'count': following.count(),
+            'results': serializer.data
+        })
+    
+    @action(detail=False, methods=['get'])
+    def leaderboard(self, request):
+        """Get leaderboard of top users by rating"""
+        top_users = User.objects.filter(is_active=True).order_by('-rating')[:50]
+        serializer = LeaderboardUserSerializer(top_users, many=True)
+        
+        return Response({
+            'count': top_users.count(),
+            'results': serializer.data
+        })
+    
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """Get user statistics"""
+        user = self.get_object()
+        stats, created = UserStats.objects.get_or_create(user=user)
+        serializer = UserStatsSerializer(stats)
+        
+        return Response(serializer.data)
 
 
 @api_view(['GET'])

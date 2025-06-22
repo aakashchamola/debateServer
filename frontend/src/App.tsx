@@ -11,6 +11,7 @@ import {
   ProfilePage,
   SessionsPage,
   CommunityPage,
+  UserProfilePage,
 } from '@/pages';
 import { Layout } from '@/components/layout';
 
@@ -106,7 +107,9 @@ function AppRoutes() {
         path="/community"
         element={
           <ProtectedRoute>
-            <CommunityPage />
+            <Layout>
+              <CommunityPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -114,7 +117,9 @@ function AppRoutes() {
         path="/sessions"
         element={
           <ProtectedRoute>
-            <SessionsPage />
+            <Layout>
+              <SessionsPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -122,15 +127,19 @@ function AppRoutes() {
         path="/profile"
         element={
           <ProtectedRoute>
-            <ProfilePage />
+            <Layout>
+              <ProfilePage />
+            </Layout>
           </ProtectedRoute>
         }
       />
       <Route 
-        path="/profile/:userId"
+        path="/profile/:username"
         element={
           <ProtectedRoute>
-            <ProfilePage />
+            <Layout>
+              <UserProfilePage />
+            </Layout>
           </ProtectedRoute>
         }
       />

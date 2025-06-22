@@ -9,6 +9,27 @@ export interface User {
   is_active: boolean;
   date_joined: string;
   notifications_enabled?: boolean; // Read-only, always true
+  rating: number;
+  bio?: string;
+  followers_count: number;
+  following_count: number;
+  is_following?: boolean; // Only present in public profiles
+}
+
+export interface UserStats {
+  total_debates: number;
+  debates_won: number;
+  debates_lost: number;
+  debates_drawn: number;
+  total_messages: number;
+  avg_message_length: number;
+  likes_received: number;
+  likes_given: number;
+  highest_rating: number;
+  lowest_rating: number;
+  last_active: string;
+  win_rate: number;
+  loss_rate: number;
 }
 
 export interface AuthTokens {

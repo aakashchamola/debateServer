@@ -40,6 +40,14 @@ interface DebateSession {
   created_at: string;
 }
 
+interface EnterChatResponse {
+  session: DebateSession;
+  user_role: 'moderator' | 'participant';
+  is_session_creator: boolean;
+  message: string;
+  participant?: any;
+}
+
 interface ChatMessage {
   id: string;
   user: User;
@@ -78,6 +86,10 @@ export function SessionChatPage() {
   const [wsConnected, setWsConnected] = useState(false);
   const [sending, setSending] = useState(false);
   
+  // Role and moderator status
+  const [userRole, setUserRole] = useState<'moderator' | 'participant' | null>(null);
+  const [isSessionCreator, setIsSessionCreator] = useState(false);
+  
   // Online and typing state
   const [onlineCount, setOnlineCount] = useState(0);
   const [totalParticipants, setTotalParticipants] = useState(0);
@@ -97,7 +109,9 @@ export function SessionChatPage() {
     messagesCount: messages.length,
     onlineCount,
     totalParticipants,
-    typingUsers 
+    typingUsers,
+    userRole,
+    isSessionCreator
   });
 
   // Early return for missing auth
@@ -135,8 +149,10 @@ export function SessionChatPage() {
         
         setSession(sessionData);
         
-        // Check if user needs to join the session first
-        if (!sessionData.user_has_joined) {
+        // Check if user needs to join the session first (only for non-moderators)
+        const isModerator = user?.role === 'MODERATOR' && sessionData.created_by.id === user.id;
+        
+        if (!sessionData.user_has_joined && !isModerator) {
           console.log('User not yet a participant, attempting to join...');
           try {
             await apiService.joinSession(parseInt(sessionId));
@@ -146,10 +162,6 @@ export function SessionChatPage() {
             const updatedSessionResponse = await apiService.getSession(parseInt(sessionId));
             const updatedSessionData = updatedSessionResponse.data as any;
             setSession(updatedSessionData);
-            
-            // Now enter the chat
-            console.log('Entering chat...');
-            await apiService.enterChat(parseInt(sessionId));
             
           } catch (joinError: any) {
             console.error('Failed to join session:', joinError);
@@ -161,15 +173,28 @@ export function SessionChatPage() {
             setLoading(false);
             return;
           }
-        } else {
-          // User is already a participant, enter chat
-          console.log('User is already a participant, entering chat...');
-          try {
-            await apiService.enterChat(parseInt(sessionId));
-          } catch (enterError) {
-            console.error('Failed to enter chat:', enterError);
-            // Continue even if enter chat fails, as user might already be in chat
+        }
+        
+        // Now enter the chat and get role information
+        console.log('Entering chat...');
+        try {
+          const enterChatResponse = await apiService.enterChat(parseInt(sessionId));
+          const chatData = enterChatResponse.data as EnterChatResponse;
+          
+          // Set role information
+          setUserRole(chatData.user_role);
+          setIsSessionCreator(chatData.is_session_creator);
+          console.log('Chat role:', chatData.user_role, 'Is creator:', chatData.is_session_creator);
+          
+        } catch (enterError: any) {
+          console.error('Failed to enter chat:', enterError);
+          if (enterError.response?.status === 403) {
+            setError('You do not have permission to access this chat.');
+          } else {
+            setError(`Failed to enter chat: ${enterError.message || 'Unknown error'}`);
           }
+          setLoading(false);
+          return;
         }
         
         // Fetch message history using the new endpoint
@@ -382,6 +407,62 @@ export function SessionChatPage() {
     }
   };
 
+  const handleStartSessionNow = async () => {
+    if (!session || userRole !== 'moderator') return;
+    
+    try {
+      await apiService.startSessionNow(session.id);
+      
+      // Refresh session data
+      const updatedSessionResponse = await apiService.getSession(session.id);
+      setSession(updatedSessionResponse.data as any);
+      
+      alert('Session started successfully!');
+      
+    } catch (error) {
+      console.error('Failed to start session:', error);
+      alert('Failed to start session. Please try again.');
+    }
+  };
+
+  const handleUpdateSessionTime = async (newStartTime: string) => {
+    if (!session || userRole !== 'moderator') return;
+    
+    try {
+      await apiService.rescheduleSession(session.id, newStartTime);
+      
+      // Refresh session data
+      const updatedSessionResponse = await apiService.getSession(session.id);
+      setSession(updatedSessionResponse.data as any);
+      
+      alert('Session rescheduled successfully!');
+      
+    } catch (error) {
+      console.error('Failed to update session time:', error);
+      alert('Failed to update session time. Please try again.');
+    }
+  };
+
+  const handleUpdateMaxParticipants = async (newMaxParticipants: number) => {
+    if (!session || userRole !== 'moderator') return;
+    
+    try {
+      const updateData = {
+        max_participants: newMaxParticipants
+      };
+      
+      await apiService.updateSession(session.id, updateData);
+      
+      // Refresh session data
+      const updatedSessionResponse = await apiService.getSession(session.id);
+      setSession(updatedSessionResponse.data as any);
+      
+    } catch (error) {
+      console.error('Failed to update max participants:', error);
+      alert('Failed to update participant limit. Please try again.');
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setNewMessage(value);
@@ -514,7 +595,7 @@ export function SessionChatPage() {
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg font-semibold flex items-center gap-2">
                   <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                  Moderator
+                  {userRole === 'moderator' && isSessionCreator ? 'You are the Moderator' : 'Moderator'}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -528,18 +609,127 @@ export function SessionChatPage() {
                     {getInitials(session.created_by.username)}
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-white text-base">{session.created_by.username}</p>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">Session Host</p>
+                    <p className="font-semibold text-gray-900 dark:text-white text-base">
+                      {userRole === 'moderator' && isSessionCreator ? 'You' : session.created_by.username}
+                    </p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      {userRole === 'moderator' && isSessionCreator ? 'Session Host (You)' : 'Session Host'}
+                    </p>
                   </div>
                 </div>
+                
+                {/* Moderator Controls */}
+                {userRole === 'moderator' && isSessionCreator && (
+                  <div className="mt-4 space-y-2">
+                    <div className="text-xs text-amber-700 dark:text-amber-300 font-medium border-t border-amber-200 dark:border-amber-700 pt-3">
+                      Moderator Controls:
+                    </div>
+                    
+                    {!session.is_ongoing && (
+                      <button
+                        onClick={handleStartSessionNow}
+                        className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                      >
+                        🚀 Start Session Now
+                      </button>
+                    )}
+                    
+                    <button
+                      onClick={() => {
+                        const newTime = prompt('Enter new start time (YYYY-MM-DDTHH:MM format):');
+                        if (newTime) handleUpdateSessionTime(newTime);
+                      }}
+                      className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      📅 Update Session Time
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        const newMaxParticipants = prompt('Enter new max participants:');
+                        if (newMaxParticipants && !isNaN(parseInt(newMaxParticipants))) {
+                          handleUpdateMaxParticipants(parseInt(newMaxParticipants));
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      👥 Update Participant Limit
+                    </button>
+                    
+                    <div className="text-xs text-amber-600 dark:text-amber-400 italic">
+                      You have full control over this session
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+            {/* Additional Moderator Panel */}
+            {userRole === 'moderator' && isSessionCreator && (
+              <Card className="bg-gradient-to-br from-red-50/80 to-pink-50/50 dark:from-red-900/30 dark:to-pink-900/30 border-red-200/80 dark:border-red-700/80 shadow-md hover:shadow-lg transition-shadow duration-200">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    Session Management
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="text-xs text-red-700 dark:text-red-300 font-medium">
+                    Chat Moderation:
+                  </div>
+                  
+                  <button
+                    onClick={() => {
+                      // In a real app, you'd implement this
+                      console.log('Clear chat messages');
+                      alert('Chat clearing feature - to be implemented');
+                    }}
+                    className="w-full px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    🧹 Clear Chat History
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      // In a real app, you'd implement this
+                      console.log('Mute all participants');
+                      alert('Mute all feature - to be implemented');
+                    }}
+                    className="w-full px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    🔇 Mute All Participants
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to end this session? This cannot be undone.')) {
+                        // In a real app, you'd implement this
+                        console.log('End session');
+                        alert('End session feature - to be implemented');
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    ⛔ End Session
+                  </button>
+                  
+                  <div className="text-xs text-red-600 dark:text-red-400 italic">
+                    Use with caution
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="flex-shrink-0 p-6 border-t border-gray-200/80 dark:border-slate-700/80">
             <div className={`flex items-center justify-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold shadow-sm transition-all duration-200 ${wsConnected ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 dark:from-green-900/60 dark:to-emerald-900/60 dark:text-green-200' : 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800 dark:from-red-900/60 dark:to-pink-900/60 dark:text-red-200'}`}>
               <div className={`w-3 h-3 rounded-full ${wsConnected ? 'bg-green-500 animate-pulse shadow-md' : 'bg-red-500 shadow-md'}`}></div>
               <span>{wsConnected ? 'Connected' : 'Connecting...'}</span>
+              {userRole === 'moderator' && isSessionCreator && (
+                <span className="text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-2 py-1 rounded-full">
+                  MOD
+                </span>
+              )}
             </div>
           </div>
         </aside>
@@ -561,6 +751,12 @@ export function SessionChatPage() {
                 <span className={`text-xs font-medium ${session.is_ongoing ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
                   {session.is_ongoing ? 'Live' : 'Scheduled'}
                 </span>
+                {userRole === 'moderator' && isSessionCreator && (
+                  <>
+                    <span className="text-gray-300 dark:text-gray-600">•</span>
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Moderator</span>
+                  </>
+                )}
               </div>
             </div>
             <div className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -586,6 +782,7 @@ export function SessionChatPage() {
                 {messages.filter(msg => msg && msg.user).map((message, index) => {
                   const isCurrentUser = message.user.id === user?.id;
                   const isModerator = message.user.role === 'MODERATOR';
+                  const isCurrentUserModerator = isCurrentUser && userRole === 'moderator';
                   const prevMessage = messages[index - 1];
                   const showHeader = !prevMessage || prevMessage.user.id !== message.user.id || new Date(message.timestamp).getTime() - new Date(prevMessage.timestamp).getTime() > 300000;
 
@@ -614,9 +811,14 @@ export function SessionChatPage() {
                         {showHeader && (
                           <div className={`mb-2 px-1 ${isCurrentUser ? 'text-right' : 'text-left'}`}>
                             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                              {isCurrentUser ? 'You' : message.user.username}
+                              {isCurrentUser ? (isCurrentUserModerator ? 'You (Moderator)' : 'You') : message.user.username}
                             </span>
-                            {isModerator && (
+                            {isModerator && !isCurrentUser && (
+                              <span className="ml-2 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-xs font-medium rounded-full">
+                                Moderator
+                              </span>
+                            )}
+                            {isCurrentUserModerator && (
                               <span className="ml-2 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-xs font-medium rounded-full">
                                 Moderator
                               </span>
@@ -682,7 +884,7 @@ export function SessionChatPage() {
               </div>
             )}
             
-            {session.user_has_joined ? (
+            {session.user_has_joined || userRole === 'moderator' ? (
               <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex items-end gap-3">
                 <div className="flex-1 relative">
                   <textarea 
@@ -690,7 +892,11 @@ export function SessionChatPage() {
                     value={newMessage} 
                     onChange={handleInputChange} 
                     onKeyDown={handleKeyPress}
-                    placeholder="Type your message..." 
+                    placeholder={
+                      userRole === 'moderator' 
+                        ? "Type your message as moderator..." 
+                        : "Type your message..."
+                    }
                     className="w-full p-4 bg-gray-50 dark:bg-slate-700/80 rounded-2xl border-2 border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none resize-none transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-gray-100 shadow-sm hover:shadow-md focus:shadow-lg" 
                     rows={1} 
                     style={{ minHeight: '52px', maxHeight: '120px' }} 

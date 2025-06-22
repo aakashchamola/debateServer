@@ -109,52 +109,78 @@ class DebateSessionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def enter_chat(self, request, pk=None):
-        """Allow participants to enter the chat room"""
+        """Allow participants and moderators to enter the chat room"""
         session = get_object_or_404(DebateSession, pk=pk, is_active=True)
+        
+        # Check if user is the session moderator (creator)
+        if request.user == session.created_by:
+            # Moderator can always enter their created sessions
+            serializer = self.get_serializer(session)
+            return Response({
+                'session': serializer.data,
+                'user_role': 'moderator',
+                'is_session_creator': True,
+                'message': 'Moderator chat access granted'
+            }, status=status.HTTP_200_OK)
         
         # Check if user is a participant
         try:
             participant = Participant.objects.get(user=request.user, session=session, is_active=True)
+            serializer = self.get_serializer(session)
+            return Response({
+                'session': serializer.data,
+                'participant': ParticipantSerializer(participant).data,
+                'user_role': 'participant',
+                'is_session_creator': False,
+                'message': 'Participant chat access granted'
+            }, status=status.HTTP_200_OK)
         except Participant.DoesNotExist:
             return Response(
-                {'error': 'You must be a participant to enter the chat'}, 
+                {'error': 'You must be a participant or the session moderator to enter the chat'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        # Return session details with chat access
-        serializer = self.get_serializer(session)
-        return Response({
-            'session': serializer.data,
-            'participant': ParticipantSerializer(participant).data,
-            'message': 'Chat access granted'
-        }, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
-        """Get message history for a session (only for participants)"""
+        """Get message history for a session (for participants and moderators)"""
         session = get_object_or_404(DebateSession, pk=pk, is_active=True)
+        
+        # Check if user is the session moderator (creator)
+        if request.user == session.created_by:
+            # Moderator can see all messages
+            messages = Message.objects.filter(
+                session=session,
+                is_deleted=False
+            ).order_by('timestamp')
+            
+            serializer = MessageSerializer(messages, many=True)
+            return Response({
+                'results': serializer.data,
+                'count': len(serializer.data),
+                'user_role': 'moderator'
+            }, status=status.HTTP_200_OK)
         
         # Check if user is a participant
         try:
             participant = Participant.objects.get(user=request.user, session=session, is_active=True)
+            # Get messages from when user joined
+            messages = Message.objects.filter(
+                session=session,
+                timestamp__gte=participant.joined_at,
+                is_deleted=False
+            ).order_by('timestamp')
+            
+            serializer = MessageSerializer(messages, many=True)
+            return Response({
+                'results': serializer.data,
+                'count': len(serializer.data),
+                'user_role': 'participant'
+            }, status=status.HTTP_200_OK)
         except Participant.DoesNotExist:
             return Response(
-                {'error': 'You must be a participant to view messages'}, 
+                {'error': 'You must be a participant or the session moderator to view messages'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        # Get messages from when user joined
-        messages = Message.objects.filter(
-            session=session,
-            timestamp__gte=participant.joined_at,
-            is_deleted=False
-        ).order_by('timestamp')
-        
-        serializer = MessageSerializer(messages, many=True)
-        return Response({
-            'results': serializer.data,
-            'count': len(serializer.data)
-        }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
     def my_sessions(self, request):
@@ -241,47 +267,62 @@ class MessageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Filter messages by session and user participation"""
+        """Filter messages by session and user participation or moderation"""
         queryset = super().get_queryset()
         session_id = self.request.query_params.get('session_id', None)
         
         if session_id is not None:
-            # Get user's participation in this session
             try:
-                participant = Participant.objects.get(
-                    user=self.request.user, 
-                    session_id=session_id, 
-                    is_active=True
-                )
-                # Only return messages from after the user joined
-                queryset = queryset.filter(
-                    session_id=session_id,
-                    timestamp__gte=participant.joined_at
-                ).order_by('timestamp')
-            except Participant.DoesNotExist:
-                # User is not a participant, return empty queryset
+                session = DebateSession.objects.get(id=session_id, is_active=True)
+                
+                # Check if user is the session moderator (creator)
+                if self.request.user == session.created_by:
+                    # Moderator can see all messages
+                    queryset = queryset.filter(session_id=session_id).order_by('timestamp')
+                else:
+                    # Check if user is a participant
+                    try:
+                        participant = Participant.objects.get(
+                            user=self.request.user, 
+                            session_id=session_id, 
+                            is_active=True
+                        )
+                        # Only return messages from after the user joined
+                        queryset = queryset.filter(
+                            session_id=session_id,
+                            timestamp__gte=participant.joined_at
+                        ).order_by('timestamp')
+                    except Participant.DoesNotExist:
+                        # User is not a participant or moderator, return empty queryset
+                        queryset = queryset.none()
+            except DebateSession.DoesNotExist:
                 queryset = queryset.none()
         
         return queryset
 
     def perform_create(self, serializer):
-        """Ensure user is a participant in the session before creating message"""
+        """Allow participants and session moderators to send messages"""
         session_id = serializer.validated_data['session_id']
         session = get_object_or_404(DebateSession, id=session_id, is_active=True)
         
-        # Check if user is a participant
-        if not Participant.objects.filter(
-            user=self.request.user, 
-            session=session, 
-            is_active=True
-        ).exists():
-            raise ValidationError("You must be a participant to send messages in this session")
+        # Check if user is the session moderator (creator)
+        if self.request.user == session.created_by:
+            # Moderator can always send messages in their created sessions
+            message = serializer.save(sender=self.request.user, session=session)
+        else:
+            # Check if user is a participant
+            if not Participant.objects.filter(
+                user=self.request.user, 
+                session=session, 
+                is_active=True
+            ).exists():
+                raise ValidationError("You must be a participant or the session moderator to send messages")
+            
+            message = serializer.save(sender=self.request.user, session=session)
         
         # Check if session is ongoing
         if not session.is_ongoing:
             raise ValidationError("Cannot send messages to a session that is not currently ongoing")
-        
-        message = serializer.save(sender=self.request.user, session=session)
         
         # Create notifications for other participants
         try:
@@ -290,3 +331,143 @@ class MessageViewSet(viewsets.ModelViewSet):
         except ImportError:
             # Notifications app not available, skip notification creation
             pass
+
+    @action(detail=True, methods=['post'])
+    def start_now(self, request, pk=None):
+        """Allow moderators to start a scheduled session immediately"""
+        session = get_object_or_404(DebateSession, pk=pk, is_active=True)
+        
+        # Check if user is the session moderator (creator)
+        if request.user != session.created_by:
+            return Response(
+                {'error': 'Only the session creator can start the session immediately'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if session hasn't started yet
+        if session.has_started:
+            return Response(
+                {'error': 'Session has already started or ended'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Set start time to now and adjust end time accordingly
+        from django.utils import timezone
+        now = timezone.now()
+        duration = session.end_time - session.start_time
+        
+        session.start_time = now
+        session.end_time = now + duration
+        session.save()
+        
+        serializer = self.get_serializer(session)
+        return Response({
+            'session': serializer.data,
+            'message': 'Session started immediately'
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def reschedule(self, request, pk=None):
+        """Allow moderators to reschedule a session"""
+        session = get_object_or_404(DebateSession, pk=pk, is_active=True)
+        
+        # Check if user is the session moderator (creator)
+        if request.user != session.created_by:
+            return Response(
+                {'error': 'Only the session creator can reschedule the session'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if session hasn't started yet
+        if session.has_started:
+            return Response(
+                {'error': 'Cannot reschedule a session that has already started'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get new start time from request
+        new_start_time = request.data.get('start_time')
+        if not new_start_time:
+            return Response(
+                {'error': 'New start_time is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Calculate duration and set new times
+        duration = session.end_time - session.start_time
+        session.start_time = new_start_time
+        session.end_time = session.start_time + duration
+        session.save()
+        
+        serializer = self.get_serializer(session)
+        return Response({
+            'session': serializer.data,
+            'message': 'Session rescheduled successfully'
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def moderate_participant(self, request, pk=None):
+        """Allow moderators to moderate participants (mute, warn, remove)"""
+        session = get_object_or_404(DebateSession, pk=pk, is_active=True)
+        
+        # Check if user is the session moderator (creator)
+        if request.user != session.created_by:
+            return Response(
+                {'error': 'Only the session creator can moderate participants'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        participant_id = request.data.get('participant_id')
+        action = request.data.get('action')  # 'mute', 'warn', 'remove'
+        
+        if not participant_id or not action:
+            return Response(
+                {'error': 'participant_id and action are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            participant = Participant.objects.get(
+                user_id=participant_id, 
+                session=session, 
+                is_active=True
+            )
+            
+            # Create moderation action record
+            try:
+                from apps.moderation.models import ModerationAction
+                ModerationAction.objects.create(
+                    action=action.upper(),
+                    participant=participant.user,
+                    session=session
+                )
+            except ImportError:
+                pass
+            
+            # Apply the action
+            if action == 'remove':
+                participant.is_active = False
+                participant.save()
+                message = f'Participant {participant.user.username} has been removed from the session'
+            elif action == 'mute':
+                # This would be handled by the frontend/websocket
+                message = f'Participant {participant.user.username} has been muted'
+            elif action == 'warn':
+                message = f'Participant {participant.user.username} has been warned'
+            else:
+                return Response(
+                    {'error': 'Invalid action. Use: mute, warn, or remove'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            return Response({
+                'message': message,
+                'action': action,
+                'participant': participant.user.username
+            }, status=status.HTTP_200_OK)
+            
+        except Participant.DoesNotExist:
+            return Response(
+                {'error': 'Participant not found in this session'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )

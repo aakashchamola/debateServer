@@ -14,6 +14,7 @@ import type {
   PaginatedResponse,
   CreateTopicForm,
   CreateSessionForm,
+  UserStats,
 } from '@/types';
 
 class ApiService {
@@ -113,6 +114,41 @@ class ApiService {
 
   async getUser(id: number): Promise<AxiosResponse<User>> {
     return this.api.get(`/api/users/${id}/`);
+  }
+
+  async searchUsers(query?: string, ordering?: string): Promise<AxiosResponse<PaginatedResponse<User>>> {
+    const params = new URLSearchParams();
+    if (query) params.append('search', query);
+    if (ordering) params.append('ordering', ordering);
+    return this.api.get(`/api/users/?${params.toString()}`);
+  }
+
+  async followUser(userId: number): Promise<AxiosResponse<{ message: string; user: User }>> {
+    return this.api.post(`/api/users/${userId}/follow/`);
+  }
+
+  async unfollowUser(userId: number): Promise<AxiosResponse<{ message: string; user: User }>> {
+    return this.api.post(`/api/users/${userId}/unfollow/`);
+  }
+
+  async getUserFollowers(userId: number): Promise<AxiosResponse<{ count: number; results: User[] }>> {
+    return this.api.get(`/api/users/${userId}/followers/`);
+  }
+
+  async getUserFollowing(userId: number): Promise<AxiosResponse<{ count: number; results: User[] }>> {
+    return this.api.get(`/api/users/${userId}/following/`);
+  }
+
+  async getMyFollowing(): Promise<AxiosResponse<{ count: number; results: User[] }>> {
+    return this.api.get('/api/users/my_following/');
+  }
+
+  async getLeaderboard(): Promise<AxiosResponse<{ count: number; results: User[] }>> {
+    return this.api.get('/api/users/leaderboard/');
+  }
+
+  async getUserStats(userId: number): Promise<AxiosResponse<UserStats>> {
+    return this.api.get(`/api/users/${userId}/stats/`);
   }
 
   // Debate Topic methods
@@ -243,6 +279,47 @@ class ApiService {
   async checkUsernameAvailability(username: string): Promise<boolean> {
     const res = await this.api.get(`/api/users/check-username/?username=${encodeURIComponent(username)}`);
     return res.data.available;
+  }
+
+  async checkEmailAvailability(email: string): Promise<boolean> {
+    const res = await this.api.get(`/api/users/check-email/?email=${encodeURIComponent(email)}`);
+    return res.data.available;
+  }
+
+  async getNotificationSettings(): Promise<AxiosResponse<{ notifications_enabled: boolean }>> {
+    return this.api.get('/api/users/profile/');
+  }
+
+  async updateNotificationSettings(data: { notifications_enabled: boolean }): Promise<AxiosResponse<any>> {
+    return this.api.patch('/api/users/profile/', data);
+  }
+
+  async uploadProfilePicture(file: File): Promise<AxiosResponse<User>> {
+    const formData = new FormData();
+    formData.append('profile_picture', file);
+    return this.api.patch('/api/users/profile/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+
+  // Moderator-specific session control methods
+  async startSessionNow(sessionId: number): Promise<AxiosResponse<any>> {
+    return this.api.post(`/api/debates/sessions/${sessionId}/start_now/`);
+  }
+
+  async rescheduleSession(sessionId: number, newStartTime: string): Promise<AxiosResponse<any>> {
+    return this.api.post(`/api/debates/sessions/${sessionId}/reschedule/`, {
+      start_time: newStartTime
+    });
+  }
+
+  async moderateParticipant(sessionId: number, participantId: number, action: 'mute' | 'warn' | 'remove'): Promise<AxiosResponse<any>> {
+    return this.api.post(`/api/debates/sessions/${sessionId}/moderate_participant/`, {
+      participant_id: participantId,
+      action: action
+    });
   }
 }
 
